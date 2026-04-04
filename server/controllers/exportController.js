@@ -19,24 +19,36 @@ export async function exportApplications(req, res) {
 
     // ── Column definitions ──
     ws.columns = [
-      { header: '#',                 key: 'idx',             width: 5  },
-      { header: 'Name',              key: 'name',            width: 25 },
-      { header: 'Email',             key: 'email',           width: 28 },
-      { header: 'DOB',               key: 'dob',             width: 12 },
-      { header: 'Category',          key: 'category',        width: 10 },
-      { header: 'Phone',             key: 'phone',           width: 14 },
-      { header: '10th %',            key: 'pct_10th',        width: 9  },
-      { header: '12th %',            key: 'pct_12th',        width: 9  },
-      { header: 'Graduation %',      key: 'pct_grad',        width: 14 },
-      { header: 'Post Graduation %', key: 'pct_pg',          width: 18 },
-      { header: 'CGPA',              key: 'cgpa',            width: 8  },
-      { header: 'Grad Marks %',      key: 'graduation_marks',width: 13 },
-      { header: 'GATE Score',        key: 'gate_score',      width: 12 },
-      { header: 'GATE Year',         key: 'gate_year',       width: 11 },
-      { header: 'CSIR Score',        key: 'csir_score',      width: 12 },
-      { header: 'CSIR Year',         key: 'csir_year',       width: 11 },
-      { header: 'NBHM Eligible',     key: 'nbhm_eligible',   width: 14 },
-      { header: 'Applied Date',      key: 'created_at',      width: 14 },
+      { header: '#',                  key: 'idx',              width: 5  },
+      { header: 'Name',               key: 'name',             width: 25 },
+      { header: 'Email',              key: 'email',            width: 28 },
+      { header: 'DOB',                key: 'dob',              width: 12 },
+      { header: 'Category',           key: 'category',         width: 10 },
+      { header: 'Marital Status',     key: 'marital_status',   width: 14 },
+      { header: 'Nationality',        key: 'nationality',      width: 14 },
+      { header: 'Research Area',      key: 'research_area',    width: 22 },
+      { header: 'Phone',              key: 'phone',            width: 14 },
+      { header: '10th Score',         key: 'score_10th',       width: 14 },
+      { header: '12th Score',         key: 'score_12th',       width: 14 },
+      { header: 'Graduation Score',   key: 'score_grad',       width: 18 },
+      { header: 'PG Score',           key: 'score_pg',         width: 14 },
+      // GATE
+      { header: 'GATE Branch',        key: 'gate_branch',      width: 15 },
+      { header: 'GATE Year',          key: 'gate_year',        width: 11 },
+      { header: 'GATE Valid Upto',    key: 'gate_valid_upto',  width: 14 },
+      { header: 'GATE Percentile',    key: 'gate_percentile',  width: 15 },
+      { header: 'GATE Score',         key: 'gate_score',       width: 12 },
+      { header: 'GATE AIR',           key: 'gate_air',         width: 10 },
+      // CSIR
+      { header: 'CSIR Branch',        key: 'csir_branch',      width: 15 },
+      { header: 'CSIR Year',          key: 'csir_year',        width: 11 },
+      { header: 'CSIR Valid Upto',    key: 'csir_valid_upto',  width: 14 },
+      { header: 'CSIR Percentile',    key: 'csir_percentile',  width: 15 },
+      { header: 'CSIR Score',         key: 'csir_score',       width: 12 },
+      { header: 'CSIR Duration',      key: 'csir_duration',    width: 14 },
+      // Other
+      { header: 'NBHM Eligible',      key: 'nbhm_eligible',    width: 14 },
+      { header: 'Applied Date',       key: 'created_at',       width: 14 },
     ]
 
     // ── Style header row ──
@@ -54,27 +66,42 @@ export async function exportApplications(req, res) {
     })
     headerRow.height = 24
 
+    // Helper: format education score
+    const fmtScore = (s) => {
+      if (!s?.score_value) return ''
+      return `${s.score_value} (${s.score_type === 'cgpa' ? 'CGPA' : '%'})`
+    }
+
     // ── Add data rows ──
     data.forEach((row, i) => {
       const r = ws.addRow({
-        idx:              i + 1,
-        name:             row.name,
-        email:            row.email,
-        dob:              row.dob,
-        category:         row.category,
-        phone:            row.phone,
-        pct_10th:         row.pct_10th,
-        pct_12th:         row.pct_12th,
-        pct_grad:         row.pct_grad,
-        pct_pg:           row.pct_pg,
-        cgpa:             row.cgpa,
-        graduation_marks: row.graduation_marks,
-        gate_score:       row.gate_score,
-        gate_year:        row.gate_year,
-        csir_score:       row.csir_score,
-        csir_year:        row.csir_year,
-        nbhm_eligible:    row.nbhm_eligible ? 'Yes' : 'No',
-        created_at:       row.created_at ? new Date(row.created_at).toLocaleDateString() : '',
+        idx:             i + 1,
+        name:            row.name,
+        email:           row.email,
+        dob:             row.dob ? new Date(row.dob).toLocaleDateString() : '',
+        category:        row.category,
+        marital_status:  row.marital_status,
+        nationality:     row.nationality,
+        research_area:   row.research_area,
+        phone:           row.phone,
+        score_10th:      fmtScore(row.pct_10th),
+        score_12th:      fmtScore(row.pct_12th),
+        score_grad:      fmtScore(row.pct_grad),
+        score_pg:        fmtScore(row.pct_pg),
+        gate_branch:     row.gate_branch,
+        gate_year:       row.gate_year,
+        gate_valid_upto: row.gate_valid_upto,
+        gate_percentile: row.gate_percentile,
+        gate_score:      row.gate_score,
+        gate_air:        row.gate_air,
+        csir_branch:     row.csir_branch,
+        csir_year:       row.csir_year,
+        csir_valid_upto: row.csir_valid_upto,
+        csir_percentile: row.csir_percentile,
+        csir_score:      row.csir_score,
+        csir_duration:   row.csir_duration,
+        nbhm_eligible:   row.nbhm_eligible ? 'Yes' : 'No',
+        created_at:      row.created_at ? new Date(row.created_at).toLocaleDateString() : '',
       })
 
       // Zebra striping

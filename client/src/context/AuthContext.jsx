@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../services/supabaseClient'
 import { checkIsAdmin } from '../services/api'
 
 const AuthContext = createContext(null)
@@ -9,41 +8,46 @@ export function AuthProvider({ children }) {
   const [isAdmin, setIsAdmin]   = useState(false)
   const [loading, setLoading]   = useState(true)
 
-  const checkAdmin = async () => {
+  const login = (token, userData) => {
+    localStorage.setItem('phd_token', token)
+    setUser(userData)
+    setIsAdmin(userData.isAdmin || false)
+  }
+
+  const logout = () => {
+    localStorage.removeItem('phd_token')
+    setUser(null)
+    setIsAdmin(false)
+  }
+
+  const checkAuth = async () => {
+    const token = localStorage.getItem('phd_token')
+    if (!token) {
+      setLoading(false)
+      return
+    }
+
     try {
+      // Use the existing checkIsAdmin endpoint but rename its purpose to 'verifyToken'
       const res = await checkIsAdmin()
-      setIsAdmin(res.data.isAdmin === true)
-    } catch {
-      setIsAdmin(false)
+      if (res.data) {
+        setUser(res.data.user || { id: res.data.userId }) // Fallback for various backend responses
+        setIsAdmin(res.data.isAdmin === true)
+      }
+    } catch (err) {
+      console.error('Auth verification failed:', err)
+      logout()
+    } finally {
+      setLoading(false)
     }
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-      if (session?.user) checkAdmin().finally(() => setLoading(false))
-      else setLoading(false)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setLoading(true)
-        setUser(session.user)
-        checkAdmin().finally(() => setLoading(false))
-      } else {
-        setUser(null)
-        setIsAdmin(false)
-        setLoading(false)
-      }
-    })
-
-    return () => subscription.unsubscribe()
+    checkAuth()
   }, [])
 
-  const signOut = () => supabase.auth.signOut()
-
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, signOut }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, login, logout, signOut: logout }}>
       {children}
     </AuthContext.Provider>
   )

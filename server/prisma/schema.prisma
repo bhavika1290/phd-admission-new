@@ -8,26 +8,31 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model Admin {
-  id         Int      @id @default(autoincrement())
-  user_id    String   @unique @db.Uuid
-  name       String?
-  created_at DateTime @default(now())
+model User {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email       String       @unique
+  name        String?
+  isAdmin     Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  Application Application?
 
-  @@map("admins")
+  @@map("users")
 }
 
 model Application {
   id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   user_id          String       @unique @db.Uuid
+  user             User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
   email            String?
   name             String
   dob              DateTime?    @db.Date
   category         String?
+  marital_status   String?
+  nationality      String?      @default("Indian")
+  research_area    String?
   address          String?
   phone            String?
-  cgpa             Float?
-  graduation_marks Float?
   nbhm_eligible    Boolean      @default(false)
   created_at       DateTime     @default(now())
   updated_at       DateTime     @default(now())
@@ -46,7 +51,8 @@ model Education {
   institute      String?
   study_type     String?
   year           Int?
-  percentage     Float?
+  score_type     String?     // 'percentage' or 'cgpa'
+  score_value    Float?      // The actual value (0-100 for %, 0-10 for CGPA)
   division       String?
 
   application    Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
@@ -58,11 +64,27 @@ model Education {
 model ExamScore {
   id             Int         @id @default(autoincrement())
   application_id String      @db.Uuid
-  exam_type      String
-  score          Float?
+  exam_type      String      // 'GATE' or 'CSIR'
+  branch         String?
   year           Int?
+  valid_upto     String?     // e.g. "March 2026"
+  percentile     Float?
+  score          Float?
+  air            Int?        // All India Rank (GATE only)
+  duration       String?     // e.g. "JRF" or "SRF" (CSIR only)
 
   application    Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
 
   @@map("exam_scores")
+}
+
+model OneTimePassword {
+  id        Int      @id @default(autoincrement())
+  email     String
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@map("otps")
 }

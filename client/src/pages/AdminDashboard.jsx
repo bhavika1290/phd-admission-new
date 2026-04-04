@@ -38,10 +38,11 @@ export default function AdminDashboard() {
 
       // Compute stats
       const nbhm = data.filter(a => a.nbhm_eligible).length
-      const avgCgpa = data.length
-        ? (data.reduce((s, a) => s + (a.cgpa || 0), 0) / data.length).toFixed(2)
+      const gateApplicants = data.filter(a => a.gate_score != null)
+      const avgGate = gateApplicants.length
+        ? (gateApplicants.reduce((s, a) => s + (a.gate_score || 0), 0) / gateApplicants.length).toFixed(2)
         : 0
-      setStats({ total: data.length, nbhm, avgCgpa })
+      setStats({ total: data.length, nbhm, avgGate })
     } catch {
       toast.error('Failed to load applications.')
     } finally {
@@ -144,10 +145,10 @@ export default function AdminDashboard() {
               <div className="w-8 h-8 rounded-lg bg-accent-500/20 flex items-center justify-center">
                 <TrendingUp size={16} className="text-accent-400" />
               </div>
-              <span className="text-white/50 text-sm">Average CGPA</span>
+              <span className="text-white/50 text-sm">Avg GATE Score</span>
             </div>
             <p className="text-3xl font-bold font-heading text-white">
-              {loading ? '—' : stats.avgCgpa}
+              {loading ? '—' : stats.avgGate}
             </p>
           </div>
 

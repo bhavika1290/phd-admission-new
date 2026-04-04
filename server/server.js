@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import applicationRoutes from './routes/applicationRoutes.js'
+import authRoutes from './routes/authRoutes.js'
 import exportRoutes from './routes/exportRoutes.js'
 
 const app  = express()
@@ -16,7 +17,8 @@ app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
 
 // ─── Routes ──────────────────────────────────────────────────
-app.use('/api', applicationRoutes)   // covers /api/application, /api/applications, /api/auth
+app.use('/api/auth', authRoutes)
+app.use('/api', applicationRoutes)   // covers /api/application, /api/applications
 app.use('/api/export', exportRoutes)
 
 // ─── Health Check ────────────────────────────────────────────

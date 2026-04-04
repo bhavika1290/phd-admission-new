@@ -1,16 +1,10 @@
-import { createClient } from '@supabase/supabase-js'
+import jwt from 'jsonwebtoken'
 import prisma from '../services/prismaClient.js'
 import 'dotenv/config'
 
-// Anon client for verifying student JWTs over the network
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-)
-
 /**
- * Verifies the Bearer JWT from Supabase Auth.
- * Attaches req.user = { id, email } on success.
+ * Verifies the Bearer JWT issued by our own backend.
+ * Attaches req.user = { id, email, isAdmin } on success.
  */
 export async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization
@@ -21,18 +15,13 @@ export async function authenticate(req, res, next) {
   const token = authHeader.split(' ')[1]
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token)
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid or expired token.' })
-    }
-
-    req.user = user
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    req.user = decoded
     req.token = token
     next()
   } catch (error) {
-    console.error('Auth verification failed:', error.message)
-    return res.status(401).json({ error: 'Internal Auth Error.' })
+    console.error('JWT Verification failed:', error.message)
+    return res.status(401).json({ error: 'Invalid or expired token.' })
   }
 }
 
@@ -41,18 +30,17 @@ export async function authenticate(req, res, next) {
  * Must be used AFTER authenticate().
  */
 export async function requireAdmin(req, res, next) {
-  try {
-    const adminUser = await prisma.admin.findUnique({
-      where: { user_id: req.user.id }
+  // We can trust the JWT since it's signed by us
+  if (!req.user.isAdmin) {
+    // Check DB as a fallback or secondary verification
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id }
     })
-
-    if (!adminUser) {
+    
+    if (!user || !user.isAdmin) {
       return res.status(403).json({ error: 'Forbidden: admin access required.' })
     }
-
-    req.isAdmin = true
-    next()
-  } catch (err) {
-    return res.status(500).json({ error: 'Failed to verify admin status.' })
   }
+  
+  next()
 }

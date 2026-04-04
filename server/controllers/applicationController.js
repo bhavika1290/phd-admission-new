@@ -5,9 +5,6 @@ import prisma from '../services/prismaClient.js'
 export async function fetchFlatApplications(params = {}) {
   let where = {}
 
-  if (params.minCGPA) {
-    where.cgpa = { gte: parseFloat(params.minCGPA) }
-  }
   if (params.category) {
     where.category = params.category
   }
@@ -18,7 +15,7 @@ export async function fetchFlatApplications(params = {}) {
     where.nbhm_eligible = false
   }
 
-  // GATE score filtering requires a relational condition
+  // GATE/CSIR score filtering
   if (params.gateScore) {
     where.exam_scores = {
       some: {
@@ -32,7 +29,7 @@ export async function fetchFlatApplications(params = {}) {
   let orderBy = {}
   const sortCol = params.sortBy || 'created_at'
   const direction = params.order || 'desc'
-  const validSortCols = ['name', 'cgpa', 'created_at', 'category']
+  const validSortCols = ['name', 'created_at', 'category']
   if (validSortCols.includes(sortCol)) {
     orderBy[sortCol] = direction
   }
@@ -54,6 +51,9 @@ export async function fetchFlatApplications(params = {}) {
     const get = (level) => edu.find(e => e.level === level)
     const getExam = (type) => exams.find(e => e.exam_type === type)
 
+    const gate = getExam('GATE')
+    const csir = getExam('CSIR')
+
     return {
       id: app.id,
       user_id: app.user_id,
@@ -61,20 +61,32 @@ export async function fetchFlatApplications(params = {}) {
       name: app.name,
       dob: app.dob,
       category: app.category,
+      marital_status: app.marital_status,
+      nationality: app.nationality,
+      research_area: app.research_area,
       address: app.address,
       phone: app.phone,
-      cgpa: app.cgpa,
-      graduation_marks: app.graduation_marks,
       nbhm_eligible: app.nbhm_eligible,
       created_at: app.created_at,
-      pct_10th: get('10th')?.percentage ?? null,
-      pct_12th: get('12th')?.percentage ?? null,
-      pct_grad: get('Graduation')?.percentage ?? null,
-      pct_pg: get('Post Graduation')?.percentage ?? null,
-      gate_score: getExam('GATE')?.score ?? null,
-      gate_year: getExam('GATE')?.year ?? null,
-      csir_score: getExam('CSIR')?.score ?? null,
-      csir_year: getExam('CSIR')?.year ?? null,
+      // Education
+      pct_10th:  { score_type: get('10th')?.score_type, score_value: get('10th')?.score_value },
+      pct_12th:  { score_type: get('12th')?.score_type, score_value: get('12th')?.score_value },
+      pct_grad:  { score_type: get('Graduation')?.score_type, score_value: get('Graduation')?.score_value },
+      pct_pg:    { score_type: get('Post Graduation')?.score_type, score_value: get('Post Graduation')?.score_value },
+      // GATE
+      gate_branch:     gate?.branch ?? null,
+      gate_year:       gate?.year ?? null,
+      gate_valid_upto: gate?.valid_upto ?? null,
+      gate_percentile: gate?.percentile ?? null,
+      gate_score:      gate?.score ?? null,
+      gate_air:        gate?.air ?? null,
+      // CSIR
+      csir_branch:     csir?.branch ?? null,
+      csir_year:       csir?.year ?? null,
+      csir_valid_upto: csir?.valid_upto ?? null,
+      csir_percentile: csir?.percentile ?? null,
+      csir_score:      csir?.score ?? null,
+      csir_duration:   csir?.duration ?? null,
       education: edu,
       exam_scores: exams,
     }
@@ -85,7 +97,6 @@ export async function fetchFlatApplications(params = {}) {
 
 /**
  * POST /api/application
- * Student: upsert own application using Prisma $transaction
  */
 export async function submitApplication(req, res) {
   const userId = req.user.id
@@ -96,15 +107,17 @@ export async function submitApplication(req, res) {
     const applicationId = await prisma.$transaction(async (tx) => {
       // 1. Upsert main application record
       const appData = {
-        name: body.name,
-        dob: body.dob ? new Date(body.dob) : null,
-        category: body.category,
-        address: body.address,
-        phone: body.phone,
-        cgpa: body.cgpa,
-        graduation_marks: body.graduation_marks,
-        nbhm_eligible: body.nbhm_eligible,
-        updated_at: new Date()
+        name:           body.name,
+        email:          body.email || email,
+        dob:            body.dob ? new Date(body.dob) : null,
+        category:       body.category,
+        marital_status: body.marital_status,
+        nationality:    body.nationality || 'Indian',
+        research_area:  body.research_area,
+        address:        body.address,
+        phone:          body.phone,
+        nbhm_eligible:  body.nbhm_eligible,
+        updated_at:     new Date()
       }
 
       const app = await tx.application.upsert({
@@ -112,7 +125,6 @@ export async function submitApplication(req, res) {
         update: appData,
         create: {
           user_id: userId,
-          email: email,         // Inherit email dynamically
           created_at: new Date(),
           ...appData
         }
@@ -120,34 +132,40 @@ export async function submitApplication(req, res) {
 
       const appId = app.id
 
-      // 2. Clear old relations, add new education
+      // 2. Clear old education rows, add new ones
       await tx.education.deleteMany({ where: { application_id: appId } })
       if (body.education?.length) {
         const eduRows = body.education
-          .filter(e => e.discipline || e.institute || e.percentage || e.year)
+          .filter(e => e.discipline || e.institute || e.score_value || e.year)
           .map(e => ({
             application_id: appId,
-            level: e.level,
+            level:      e.level,
             discipline: e.discipline,
-            institute: e.institute,
+            institute:  e.institute,
             study_type: e.study_type || 'Regular',
-            year: e.year,
-            percentage: e.percentage,
-            division: e.division,
+            year:       e.year,
+            score_type: e.score_type,
+            score_value: e.score_value,
+            division:   e.division,
           }))
         if (eduRows.length) await tx.education.createMany({ data: eduRows })
       }
 
-      // 3. Clear old records, add new exam scores
+      // 3. Clear old exam scores, add new ones
       await tx.examScore.deleteMany({ where: { application_id: appId } })
       if (body.exam_scores?.length) {
         const scoreRows = body.exam_scores
-          .filter(s => s.score != null && s.score !== '')
+          .filter(s => s.score != null)
           .map(s => ({
             application_id: appId,
-            exam_type: s.exam_type,
-            score: s.score,
-            year: s.year,
+            exam_type:  s.exam_type,
+            branch:     s.branch,
+            year:       s.year,
+            valid_upto: s.valid_upto,
+            percentile: s.percentile,
+            score:      s.score,
+            air:        s.exam_type === 'GATE' ? s.air : null,
+            duration:   s.exam_type === 'CSIR' ? s.duration : null,
           }))
         if (scoreRows.length) await tx.examScore.createMany({ data: scoreRows })
       }
@@ -164,7 +182,6 @@ export async function submitApplication(req, res) {
 
 /**
  * GET /api/application/me
- * Student: fetch own application
  */
 export async function getMyApplication(req, res) {
   const userId = req.user.id

@@ -8,6 +8,14 @@ const CATEGORY_COLORS = {
   ST:  'bg-green-500/20 text-green-300 border-green-500/30',
 }
 
+// Helper: render education score object as "8.5 CGPA" or "85.0 %" or "—"
+function fmtEduScore(s) {
+  if (!s || s.score_value == null) return '—'
+  return s.score_type === 'cgpa'
+    ? `${s.score_value} CGPA`
+    : `${s.score_value}%`
+}
+
 function SortIcon({ column, sortBy, order }) {
   if (sortBy !== column) return <ChevronsUpDown size={12} className="text-white/20" />
   return order === 'asc'
@@ -56,15 +64,15 @@ export default function ApplicantsTable({ data, loading, sortBy, order, onSort }
               <th className="px-4 py-3 font-semibold tracking-wider">#</th>
               {sortableCol('name', 'Name')}
               <th className="px-4 py-3 font-semibold tracking-wider">Category</th>
-              {sortableCol('cgpa', 'CGPA')}
-              <th className="px-4 py-3 font-semibold tracking-wider">10th %</th>
-              <th className="px-4 py-3 font-semibold tracking-wider">12th %</th>
-              <th className="px-4 py-3 font-semibold tracking-wider">Grad %</th>
-              <th className="px-4 py-3 font-semibold tracking-wider">PG %</th>
+              <th className="px-4 py-3 font-semibold tracking-wider">Research Area</th>
+              <th className="px-4 py-3 font-semibold tracking-wider">10th</th>
+              <th className="px-4 py-3 font-semibold tracking-wider">12th</th>
+              <th className="px-4 py-3 font-semibold tracking-wider">Grad</th>
+              <th className="px-4 py-3 font-semibold tracking-wider">PG</th>
               <th className="px-4 py-3 font-semibold tracking-wider">GATE</th>
               <th className="px-4 py-3 font-semibold tracking-wider">CSIR</th>
               <th className="px-4 py-3 font-semibold tracking-wider">NBHM</th>
-              <th className="px-4 py-3 font-semibold tracking-wider">Applied</th>
+              {sortableCol('created_at', 'Applied')}
             </tr>
           </thead>
           <tbody>
@@ -82,15 +90,35 @@ export default function ApplicantsTable({ data, loading, sortBy, order, onSort }
                     {app.category || '—'}
                   </span>
                 </td>
-                <td className="px-4 py-3 font-mono font-medium text-primary-300">
-                  {app.cgpa != null ? app.cgpa.toFixed(2) : '—'}
+                <td className="px-4 py-3 text-white/60 text-xs max-w-[140px] truncate"
+                  title={app.research_area}>
+                  {app.research_area || '—'}
                 </td>
-                <td className="px-4 py-3 text-white/70">{app.pct_10th != null ? `${app.pct_10th}%` : '—'}</td>
-                <td className="px-4 py-3 text-white/70">{app.pct_12th != null ? `${app.pct_12th}%` : '—'}</td>
-                <td className="px-4 py-3 text-white/70">{app.pct_grad != null ? `${app.pct_grad}%` : '—'}</td>
-                <td className="px-4 py-3 text-white/70">{app.pct_pg != null ? `${app.pct_pg}%` : '—'}</td>
-                <td className="px-4 py-3 font-mono text-accent-400">{app.gate_score ?? '—'}</td>
-                <td className="px-4 py-3 font-mono text-accent-400">{app.csir_score ?? '—'}</td>
+                <td className="px-4 py-3 text-white/70 text-xs">{fmtEduScore(app.pct_10th)}</td>
+                <td className="px-4 py-3 text-white/70 text-xs">{fmtEduScore(app.pct_12th)}</td>
+                <td className="px-4 py-3 text-white/70 text-xs">{fmtEduScore(app.pct_grad)}</td>
+                <td className="px-4 py-3 text-white/70 text-xs">{fmtEduScore(app.pct_pg)}</td>
+
+                {/* GATE */}
+                <td className="px-4 py-3 text-xs">
+                  {app.gate_score != null ? (
+                    <div>
+                      <span className="font-mono font-medium text-accent-400">{app.gate_score}</span>
+                      {app.gate_air && <span className="text-white/30 ml-1">AIR {app.gate_air}</span>}
+                    </div>
+                  ) : '—'}
+                </td>
+
+                {/* CSIR */}
+                <td className="px-4 py-3 text-xs">
+                  {app.csir_score != null ? (
+                    <div>
+                      <span className="font-mono font-medium text-accent-400">{app.csir_score}</span>
+                      {app.csir_duration && <span className="text-white/30 ml-1">{app.csir_duration}</span>}
+                    </div>
+                  ) : '—'}
+                </td>
+
                 <td className="px-4 py-3">
                   {app.nbhm_eligible
                     ? <span className="badge bg-success-500/20 text-success-500 border border-success-500/30">Yes</span>
