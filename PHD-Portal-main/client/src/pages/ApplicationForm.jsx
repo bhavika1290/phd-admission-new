@@ -72,7 +72,8 @@ const buildDefaultForm = () => ({
   },
   graduation: [blankEducation('Graduation')],
   postGraduation: [blankEducation('Post Graduation')],
-  examDetails: [blankExam()],
+  examDetails: [],
+  declaration_accepted: false,
   nbhm_eligible: false,
 })
 
@@ -129,9 +130,32 @@ function getThreshold(category) {
   return category === 'GEN' ? 60 : 55
 }
 
+function isBlankEducationRow(row) {
+  return !String(row.board || '').trim()
+    && !String(row.degree_name || '').trim()
+    && !String(row.custom_degree_name || '').trim()
+    && !String(row.cfti_status || '').trim()
+    && !String(row.discipline || '').trim()
+    && !String(row.institute || '').trim()
+    && !String(row.year_of_passing || '').trim()
+    && !String(row.score_value || '').trim()
+}
+
+function isBlankExamRow(row) {
+  return !String(row.exam_name || '').trim()
+    && !String(row.custom_exam_name || '').trim()
+    && !String(row.branch || '').trim()
+    && !String(row.year || '').trim()
+    && !String(row.valid_upto || '').trim()
+    && !String(row.score || '').trim()
+    && !String(row.percentile || '').trim()
+    && !String(row.air || '').trim()
+}
+
 export default function ApplicationForm() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const paymentUrl = import.meta.env.VITE_SBI_COLLECT_URL || 'https://www.onlinesbi.sbi/sbicollect/'
   const [form, setForm] = useState(buildDefaultForm())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -176,7 +200,8 @@ export default function ApplicationForm() {
           },
           graduation: graduationRows.length ? graduationRows.map((row) => normalizeEducationRow(row)) : [blankEducation('Graduation')],
           postGraduation: postGradRows.length ? postGradRows.map((row) => normalizeEducationRow(row)) : [normalizeEducationRow(firstPostGrad)],
-          examDetails: examRows.length ? examRows.map((row) => normalizeExamRow(row)) : [blankExam()],
+          examDetails: examRows.length ? examRows.map((row) => normalizeExamRow(row)) : [],
+          declaration_accepted: !!app.declaration_accepted,
           nbhm_eligible: app.nbhm_eligible ?? false,
         })
       })
@@ -271,6 +296,10 @@ export default function ApplicationForm() {
       if (!nextErrors[path]) nextErrors[path] = message
     }
 
+    const graduationRows = form.graduation.filter((row) => !isBlankEducationRow(row))
+    const postGraduationRows = form.postGraduation.filter((row) => !isBlankEducationRow(row))
+    const examRows = form.examDetails.filter((row) => !isBlankExamRow(row))
+
     if (!form.first_name.trim()) addError('first_name', 'First name is required.')
     if (!form.last_name.trim()) addError('last_name', 'Last name is required.')
     if (!form.gender.trim()) addError('gender', 'Gender is required.')
@@ -286,7 +315,7 @@ export default function ApplicationForm() {
     if (!twelfth.year_of_passing) addError('education.12th.year_of_passing', 'Year of passing is required.')
     if (!twelfth.score_value) addError('education.12th.score_value', `12th must be at least ${threshold}%.`)
 
-    form.graduation.forEach((row, index) => {
+    graduationRows.forEach((row, index) => {
       if (!row.degree_name.trim()) addError(`graduation.${index}.degree_name`, 'Degree is required.')
       if (row.degree_name === 'Other' && !row.custom_degree_name.trim()) {
         addError(`graduation.${index}.custom_degree_name`, 'Custom degree name is required.')
@@ -296,7 +325,7 @@ export default function ApplicationForm() {
       if (!row.score_value) addError(`graduation.${index}.score_value`, `Graduation must be at least ${threshold}%.`)
     })
 
-    form.postGraduation.forEach((row, index) => {
+    postGraduationRows.forEach((row, index) => {
       if (!row.degree_name.trim()) addError(`postGraduation.${index}.degree_name`, 'Degree is required.')
       if (row.degree_name === 'Other' && !row.custom_degree_name.trim()) {
         addError(`postGraduation.${index}.custom_degree_name`, 'Custom degree name is required.')
@@ -311,16 +340,86 @@ export default function ApplicationForm() {
       }
     })
 
-    form.examDetails.forEach((row, index) => {
+    examRows.forEach((row, index) => {
       if (!row.exam_name.trim()) addError(`examDetails.${index}.exam_name`, 'Exam name is required.')
       if (row.exam_name === 'Any Other' && !row.custom_exam_name.trim()) {
         addError(`examDetails.${index}.custom_exam_name`, 'Custom exam name is required.')
       }
-      if (!row.percentile && !row.rank) addError(`examDetails.${index}.percentile`, 'Provide either percentile or rank.')
+      if (row.score === '' || row.score === null || row.score === undefined) {
+        addError(`examDetails.${index}.score`, 'Score is required.')
+      }
+      if (row.air === '' || row.air === null || row.air === undefined) {
+        addError(`examDetails.${index}.air`, 'All India Rank is required.')
+      }
+      if (row.percentile === '' || row.percentile === null || row.percentile === undefined) {
+        addError(`examDetails.${index}.percentile`, 'Percentile is required.')
+      }
     })
 
+    if (examRows.length === 0) {
+      addError('examDetails', 'Please add at least one exam.')
+    }
+
+    if (!form.declaration_accepted) {
+      addError('declaration_accepted', 'You must accept the declaration before submission.')
+    }
+
+    console.log('Validation errors:', nextErrors)
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
+  }
+
+  const buildPayload = () => {
+    const education = [
+      form.education['10th'],
+      form.education['12th'],
+      ...form.graduation.filter((row) => !isBlankEducationRow(row)),
+      ...form.postGraduation.filter((row) => !isBlankEducationRow(row)),
+    ].map((row) => ({
+      ...row,
+      year_of_passing: row.year_of_passing || row.year || '',
+    }))
+
+    const exam_details = form.examDetails
+      .filter((row) => !isBlankExamRow(row))
+      .map((row) => ({
+      ...row,
+      exam_name: row.exam_name,
+      custom_exam_name: row.exam_name === 'Any Other' ? row.custom_exam_name : '',
+      score: row.score === '' ? null : row.score,
+      percentile: row.percentile === '' ? null : row.percentile,
+      rank: null,
+      air: row.air === '' ? null : row.air,
+    }))
+    return {
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+      gender: form.gender,
+      email: form.email.trim() || null,
+      dob: form.dob,
+      category: form.category,
+      marital_status: form.marital_status,
+      nationality: form.nationality,
+      study_mode: form.study_mode,
+      address: form.address,
+      phone: form.phone,
+      research_pref_1: combineChoice(form.research_pref_1, form.research_pref_1_custom),
+      research_pref_2: combineChoice(form.research_pref_2, form.research_pref_2_custom),
+      research_area: combineChoice(form.research_pref_1, form.research_pref_1_custom),
+      nbhm_eligible: form.nbhm_eligible,
+      declaration_accepted: form.declaration_accepted,
+      education,
+      exam_details,
+    }
+  }
+
+  const saveApplication = async () => {
+    const payload = buildPayload()
+    console.log('Submitting application payload:', payload)
+    const response = await submitApplication(payload)
+    toast.success(response.data?.message || (isEdit ? 'Application updated!' : 'Application submitted!'))
+    setIsEdit(true)
+    return response
   }
 
   const handleSubmit = async (event) => {
@@ -332,51 +431,9 @@ export default function ApplicationForm() {
       return
     }
 
-    const education = [
-      form.education['10th'],
-      form.education['12th'],
-      ...form.graduation,
-      ...form.postGraduation,
-    ].map((row) => ({
-      ...row,
-      year_of_passing: row.year_of_passing || row.year || '',
-    }))
-
-    const exam_details = form.examDetails.map((row) => ({
-      ...row,
-      exam_name: row.exam_name,
-      custom_exam_name: row.exam_name === 'Any Other' ? row.custom_exam_name : '',
-      score: row.score === '' ? null : row.score,
-      percentile: row.percentile === '' ? null : row.percentile,
-      rank: row.rank === '' ? null : row.rank,
-      air: row.air === '' ? null : row.air,
-    }))
-
     setSaving(true)
     try {
-      const payload = {
-        first_name: form.first_name.trim(),
-        last_name: form.last_name.trim(),
-        gender: form.gender,
-        email: form.email,
-        dob: form.dob,
-        category: form.category,
-        marital_status: form.marital_status,
-        nationality: form.nationality,
-        study_mode: form.study_mode,
-        address: form.address,
-        phone: form.phone,
-        research_pref_1: combineChoice(form.research_pref_1, form.research_pref_1_custom),
-        research_pref_2: combineChoice(form.research_pref_2, form.research_pref_2_custom),
-        research_area: combineChoice(form.research_pref_1, form.research_pref_1_custom),
-        nbhm_eligible: form.nbhm_eligible,
-        education,
-        exam_details,
-      }
-
-      const response = await submitApplication(payload)
-      toast.success(response.data?.message || (isEdit ? 'Application updated!' : 'Application submitted!'))
-      setIsEdit(true)
+      await saveApplication()
     } catch (error) {
       const detail = error.response?.data
       if (detail?.details) {
@@ -385,6 +442,37 @@ export default function ApplicationForm() {
       }
       setSubmitError(detail?.error || 'Something went wrong.')
       toast.error(detail?.error || 'Something went wrong.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleProceedToPayment = async (event) => {
+    event.preventDefault()
+    setSubmitError('')
+
+    if (!validate()) {
+      toast.error('Please fix the highlighted fields before payment.')
+      return
+    }
+
+    if (!paymentUrl) {
+      toast.error('Payment link is not configured. Please contact the administrator.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      await saveApplication()
+      window.location.assign(paymentUrl)
+    } catch (error) {
+      const detail = error.response?.data
+      if (detail?.details) {
+        const flattened = flattenEducationErrors(detail.details)
+        setErrors((current) => ({ ...current, ...flattened }))
+      }
+      setSubmitError(detail?.error || 'Unable to save application before payment.')
+      toast.error(detail?.error || 'Unable to save application before payment.')
     } finally {
       setSaving(false)
     }
@@ -889,62 +977,80 @@ export default function ApplicationForm() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h4 className="text-white font-semibold">Exam Records</h4>
-                  <p className="text-xs text-white/40">Exam name, score, percentile, rank and AIR</p>
+                  <p className="text-xs text-white/40">Exam name, score, All India Rank and percentile</p>
                 </div>
                 <button type="button" onClick={addExam} className="btn-secondary flex items-center gap-2 px-4 py-2 text-sm">
                   <Plus size={14} /> Add Exam
                 </button>
               </div>
 
-              <div className="space-y-4">
-                {form.examDetails.map((row, index) => (
-                  <div key={index} className="rounded-xl border border-white/10 bg-dark-900/30 p-4 space-y-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-white">Exam #{index + 1}</p>
-                      {form.examDetails.length > 1 && (
-                        <button type="button" onClick={() => removeExam(index)} className="text-xs text-red-300 hover:text-red-200 flex items-center gap-1">
-                          <Trash2 size={12} /> Remove
-                        </button>
-                      )}
-                    </div>
+              {form.examDetails.length === 0 ? (
+                <div className="rounded-xl border border-white/20 border-dashed bg-white/5 p-6 text-center">
+                  <p className="text-white/60 text-sm mb-3">No exams added yet</p>
+                  <button type="button" onClick={addExam} className="btn-primary px-4 py-2 text-sm">
+                    + Add Your First Exam
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {form.examDetails.map((row, index) => (
+                    <div key={index} className="rounded-xl border border-white/10 bg-dark-900/30 p-4 space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-white">Exam #{index + 1}</p>
+                        {form.examDetails.length > 1 && (
+                          <button type="button" onClick={() => removeExam(index)} className="text-xs text-red-300 hover:text-red-200 flex items-center gap-1">
+                            <Trash2 size={12} /> Remove
+                          </button>
+                        )}
+                      </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FieldWrapper label="Exam Name" required error={renderError(`examDetails.${index}.exam_name`)}>
-                        <select
-                          value={row.exam_name}
-                          onChange={(e) => setExamField(index, 'exam_name', e.target.value)}
-                          className="form-input appearance-none"
-                        >
-                          {EXAM_OPTIONS.map((option) => <option key={option} value={option} className="bg-dark-800">{option}</option>)}
-                        </select>
-                      </FieldWrapper>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FieldWrapper label="Exam Name" required error={renderError(`examDetails.${index}.exam_name`)}>
+                          <select
+                            value={row.exam_name}
+                            onChange={(e) => setExamField(index, 'exam_name', e.target.value)}
+                            className="form-input appearance-none"
+                          >
+                            {EXAM_OPTIONS.map((option) => <option key={option} value={option} className="bg-dark-800">{option}</option>)}
+                          </select>
+                        </FieldWrapper>
 
-                      {row.exam_name === 'Any Other' && (
-                        <FieldWrapper label="Custom Exam Name" required error={renderError(`examDetails.${index}.custom_exam_name`)}>
+                        {row.exam_name === 'Any Other' && (
+                          <FieldWrapper label="Custom Exam Name" required error={renderError(`examDetails.${index}.custom_exam_name`)}>
+                            <input
+                              type="text"
+                              value={row.custom_exam_name}
+                              onChange={(e) => setExamField(index, 'custom_exam_name', e.target.value)}
+                              className="form-input"
+                              placeholder="Enter exam name"
+                            />
+                          </FieldWrapper>
+                        )}
+
+                        <FieldWrapper label="Score" required error={renderError(`examDetails.${index}.score`)}>
                           <input
-                            type="text"
-                            value={row.custom_exam_name}
-                            onChange={(e) => setExamField(index, 'custom_exam_name', e.target.value)}
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={row.score}
+                            onChange={(e) => setExamField(index, 'score', e.target.value)}
                             className="form-input"
-                            placeholder="Enter exam name"
+                            placeholder="Enter score"
                           />
                         </FieldWrapper>
-                      )}
 
-                      <FieldWrapper label="Score (Optional)">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={row.score}
-                          onChange={(e) => setExamField(index, 'score', e.target.value)}
-                          className="form-input"
-                          placeholder="Optional"
-                        />
-                      </FieldWrapper>
+                        <FieldWrapper label="All India Rank" required error={renderError(`examDetails.${index}.air`)}>
+                          <input
+                            type="number"
+                            min="1"
+                            value={row.air}
+                            onChange={(e) => setExamField(index, 'air', e.target.value)}
+                            className="form-input"
+                            placeholder="All India Rank"
+                          />
+                        </FieldWrapper>
 
-                      <FieldWrapper label="Percentile OR Rank" required error={renderError(`examDetails.${index}.percentile`)}>
-                        <div className="grid grid-cols-2 gap-3">
+                        <FieldWrapper label="Percentile" required error={renderError(`examDetails.${index}.percentile`)}>
                           <input
                             type="number"
                             step="0.01"
@@ -953,65 +1059,46 @@ export default function ApplicationForm() {
                             value={row.percentile}
                             onChange={(e) => setExamField(index, 'percentile', e.target.value)}
                             className="form-input"
-                            placeholder="Percentile"
+                            placeholder="Enter percentile"
                           />
+                        </FieldWrapper>
+
+                        <FieldWrapper label="Year of Exam">
                           <input
                             type="number"
-                            min="1"
-                            value={row.rank}
-                            onChange={(e) => setExamField(index, 'rank', e.target.value)}
+                            min="2000"
+                            max={new Date().getFullYear() + 1}
+                            value={row.year}
+                            onChange={(e) => setExamField(index, 'year', e.target.value)}
                             className="form-input"
-                            placeholder="Rank"
+                            placeholder="2024"
                           />
-                        </div>
-                      </FieldWrapper>
+                        </FieldWrapper>
 
-                      <FieldWrapper label="AIR (Optional)">
-                        <input
-                          type="number"
-                          min="1"
-                          value={row.air}
-                          onChange={(e) => setExamField(index, 'air', e.target.value)}
-                          className="form-input"
-                          placeholder="All India Rank"
-                        />
-                      </FieldWrapper>
+                        <FieldWrapper label="Branch / Subject">
+                          <input
+                            type="text"
+                            value={row.branch}
+                            onChange={(e) => setExamField(index, 'branch', e.target.value)}
+                            className="form-input"
+                            placeholder="Optional"
+                          />
+                        </FieldWrapper>
+                      </div>
 
-                      <FieldWrapper label="Year of Exam">
-                        <input
-                          type="number"
-                          min="2000"
-                          max={new Date().getFullYear() + 1}
-                          value={row.year}
-                          onChange={(e) => setExamField(index, 'year', e.target.value)}
-                          className="form-input"
-                          placeholder="2024"
-                        />
-                      </FieldWrapper>
-
-                      <FieldWrapper label="Branch / Subject">
+                      <FieldWrapper label="Valid Upto" className="md:col-span-2">
                         <input
                           type="text"
-                          value={row.branch}
-                          onChange={(e) => setExamField(index, 'branch', e.target.value)}
+                          value={row.valid_upto}
+                          onChange={(e) => setExamField(index, 'valid_upto', e.target.value)}
                           className="form-input"
                           placeholder="Optional"
                         />
                       </FieldWrapper>
                     </div>
-
-                    <FieldWrapper label="Valid Upto" className="md:col-span-2">
-                      <input
-                        type="text"
-                        value={row.valid_upto}
-                        onChange={(e) => setExamField(index, 'valid_upto', e.target.value)}
-                        className="form-input"
-                        placeholder="Optional"
-                      />
-                    </FieldWrapper>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </FormSection>
 
@@ -1090,14 +1177,61 @@ export default function ApplicationForm() {
             </div>
           </FormSection>
 
+          <FormSection icon={CheckSquare} title="Declaration" subtitle="Please read and accept before submission">
+            <div className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70 leading-relaxed">
+              <p className="font-semibold text-white mb-2">DECLARATION</p>
+              <p>
+                I hereby declare that I have carefully read the instructions and particulars supplied to me and that the entries
+                made in this application form are correct to the best of my knowledge and belief. If selected for admission,
+                I promise to abide by the rules and discipline of the Institute. I note that the decision of the Institute is
+                final in regards to selection. The Institute shall have the right to expel me from the Institute at any time
+                after my admission, provided it is satisfied that I was admitted on false particulars furnished by me or my
+                antecedents prove that my continuance in the Institute is not desirable. I agree that I shall abide by the
+                decision of the Institute, which shall be final.
+              </p>
+            </div>
+
+            <div className="md:col-span-2">
+              <label htmlFor="field-declaration" className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:border-primary-500/50 transition-all">
+                <input
+                  id="field-declaration"
+                  type="checkbox"
+                  checked={form.declaration_accepted}
+                  onChange={(e) => setField('declaration_accepted', e.target.checked)}
+                  className="mt-1"
+                />
+                <div>
+                  <p className="text-white font-medium">I have read and accept the declaration.</p>
+                  {renderError('declaration_accepted') && (
+                    <p className="text-xs text-red-300 mt-1">{renderError('declaration_accepted')}</p>
+                  )}
+                </div>
+              </label>
+            </div>
+          </FormSection>
+
           <div className="flex justify-end gap-4 pt-2 pb-8">
-            <button id="btn-submit-application" type="submit" disabled={saving} className="btn-primary flex items-center gap-2 px-8">
+            <button id="btn-submit-application" type="submit" disabled={saving} className="btn-secondary flex items-center gap-2 px-8">
               {saving ? (
                 <><Loader2 size={16} className="animate-spin" /> Saving...</>
               ) : isEdit ? (
-                <><RefreshCw size={16} /> Update Application</>
+                <><RefreshCw size={16} /> Save Application</>
               ) : (
-                <><Save size={16} /> Submit Application</>
+                <><Save size={16} /> Save Application</>
+              )}
+            </button>
+
+            <button
+              id="btn-proceed-payment"
+              type="button"
+              onClick={handleProceedToPayment}
+              disabled={saving}
+              className="btn-primary flex items-center gap-2 px-8"
+            >
+              {saving ? (
+                <><Loader2 size={16} className="animate-spin" /> Saving...</>
+              ) : (
+                <>Proceed to Payment</>
               )}
             </button>
           </div>

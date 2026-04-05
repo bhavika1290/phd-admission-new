@@ -33,7 +33,7 @@ function fmtExam(row) {
   if (row.score != null) parts.push(`Score ${row.score}`)
   if (row.percentile != null) parts.push(`Pct ${row.percentile}`)
   if (row.rank != null) parts.push(`Rank ${row.rank}`)
-  if (row.air != null) parts.push(`AIR ${row.air}`)
+  if (row.air != null) parts.push(`All India Rank ${row.air}`)
   return parts.length ? parts.join(' · ') : '—'
 }
 
