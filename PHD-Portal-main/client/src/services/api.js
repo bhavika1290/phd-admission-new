@@ -28,12 +28,15 @@ export const verifyOtp = (email, otp) =>
 export const submitApplication = (payload) =>
   api.post('/application', payload)
 
+export const finalizeApplication = (payload) =>
+  api.post('/application/finalize', payload)
+
 export const getMyApplication = () =>
   api.get('/application/me')
 
 // Admin endpoints
 export const checkIsAdmin = () =>
-  api.get('/auth/is-admin') // Note: Adjusted to new auth route if applicable, or keep as is if on /api
+  api.get('/is-admin') // Matches applicationRoutes.js mounting on /api
 
 export const getAllApplications = (filters = {}) =>
   api.get('/applications', { params: filters })

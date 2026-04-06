@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import ApplicationForm from './pages/ApplicationForm'
+import PaymentPage from './pages/PaymentPage'
 import AdminDashboard from './pages/AdminDashboard'
 import LoadingScreen from './components/LoadingScreen'
 
@@ -27,8 +28,9 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/apply" element={<ProtectedRoute><ApplicationForm /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/apply"   element={<ProtectedRoute><ApplicationForm /></ProtectedRoute>} />
+      <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+      <Route path="/admin"   element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   )

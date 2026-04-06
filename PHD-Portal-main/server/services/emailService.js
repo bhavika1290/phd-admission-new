@@ -117,3 +117,33 @@ export async function sendSubmissionNotificationEmails({
     demoMailMode,
   }
 }
+
+export async function sendFinalConfirmationEmail({
+  studentEmail,
+  studentName,
+  transactionId,
+  paymentDate,
+}) {
+  const subject = 'PhD Application - Final Submission Confirmed'
+  const html = `
+    <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
+      <h2 style="color: #10b981;">Submission Confirmed</h2>
+      <p>Dear ${studentName || 'Applicant'},</p>
+      <p>Thank you for your payment and final submission.</p>
+      <div style="background: #f0fdf4; padding: 15px; border-radius: 12px; margin: 20px 0; border: 1px solid #d1fae5;">
+        <p style="margin: 5px 0;"><strong>Transaction ID:</strong> ${transactionId}</p>
+        <p style="margin: 5px 0;"><strong>Payment Date:</strong> ${paymentDate}</p>
+      </div>
+      <p>Your application is now under review by the admission committee.</p>
+      <p style="font-size: 14px; color: #64748b; margin-top: 20px;">
+        Reference: ${studentEmail}
+      </p>
+    </div>
+  `
+  return sendMail({
+    from: `"PhD Portal Admissions" <${process.env.GMAIL_USER || 'no-reply@localhost'}>`,
+    to: studentEmail,
+    subject,
+    html,
+  })
+}

@@ -3,6 +3,7 @@ import { authenticate, requireAdmin } from '../middleware/authMiddleware.js'
 import { validate, applicationSchema } from '../middleware/validateMiddleware.js'
 import {
   submitApplication,
+  finalizeApplication,
   getMyApplication,
   getAllApplications,
 } from '../controllers/applicationController.js'
@@ -23,8 +24,9 @@ router.get('/is-admin', authenticate, async (req, res) => {
 })
 
 // ── Student routes ──
-router.post('/application',    authenticate, validate(applicationSchema), submitApplication)
-router.get ('/application/me', authenticate, getMyApplication)
+router.post('/application',          authenticate, validate(applicationSchema), submitApplication)
+router.post('/application/finalize', authenticate, finalizeApplication)
+router.get ('/application/me',       authenticate, getMyApplication)
 
 // ── Admin routes ──
 router.get('/applications', authenticate, requireAdmin, getAllApplications)

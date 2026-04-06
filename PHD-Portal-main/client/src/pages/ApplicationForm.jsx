@@ -345,15 +345,6 @@ export default function ApplicationForm() {
       if (row.exam_name === 'Any Other' && !row.custom_exam_name.trim()) {
         addError(`examDetails.${index}.custom_exam_name`, 'Custom exam name is required.')
       }
-      if (row.score === '' || row.score === null || row.score === undefined) {
-        addError(`examDetails.${index}.score`, 'Score is required.')
-      }
-      if (row.air === '' || row.air === null || row.air === undefined) {
-        addError(`examDetails.${index}.air`, 'All India Rank is required.')
-      }
-      if (row.percentile === '' || row.percentile === null || row.percentile === undefined) {
-        addError(`examDetails.${index}.percentile`, 'Percentile is required.')
-      }
     })
 
     if (examRows.length === 0) {
@@ -464,7 +455,7 @@ export default function ApplicationForm() {
     setSaving(true)
     try {
       await saveApplication()
-      window.location.assign(paymentUrl)
+      navigate('/payment')
     } catch (error) {
       const detail = error.response?.data
       if (detail?.details) {

@@ -15,7 +15,10 @@ const educationSchema = z.object({
   board: z.string().optional().nullable(),
   degree_name: z.string().optional().nullable(),
   custom_degree_name: z.string().optional().nullable(),
-  cfti_status: z.enum(['CFTI', 'Non-CFTI']).optional().nullable(),
+  cfti_status: z.preprocess(
+    (val) => (val === '' || val === undefined ? null : val),
+    z.enum(['CFTI', 'Non-CFTI']).optional().nullable()
+  ),
   discipline: z.string().optional().nullable(),
   institute: z.string().optional().nullable(),
   study_type: z.enum(['Regular', 'Part-time', 'Online']).optional().nullable(),
@@ -68,18 +71,6 @@ const examDetailSchema = z.object({
 }).superRefine((data, ctx) => {
   if (data.exam_name === 'Any Other' && !String(data.custom_exam_name || '').trim()) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['custom_exam_name'], message: 'Custom exam name is required.' })
-  }
-
-  if (data.score == null) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['score'], message: 'Score is required.' })
-  }
-
-  if (data.percentile == null) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['percentile'], message: 'Percentile is required.' })
-  }
-
-  if (data.air == null) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['air'], message: 'All India Rank is required.' })
   }
 })
 

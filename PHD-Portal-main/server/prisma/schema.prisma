@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -42,6 +43,9 @@ model Application {
   nbhm_eligible    Boolean      @default(false)
   eligibility_status  String?
   eligibility_message String?
+  transaction_id   String?
+  payment_date     DateTime?
+  is_submitted     Boolean      @default(false)
   created_at       DateTime     @default(now())
   updated_at       DateTime     @default(now())
 

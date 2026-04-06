@@ -1,6 +1,6 @@
 import prisma from '../services/prismaClient.js'
 import { evaluateEligibility, validateExamDetails, formatExamLabel } from '../services/applicationRules.js'
-import { sendSubmissionNotificationEmails } from '../services/emailService.js'
+import { sendSubmissionNotificationEmails, sendFinalConfirmationEmail } from '../services/emailService.js'
 
 function toNumber(value) {
   if (value === null || value === undefined || value === '') return null
@@ -341,28 +341,73 @@ export async function submitApplication(req, res) {
       return app.id
     })
 
+    return res.status(200).json({
+      message: 'Application saved.',
+      id: applicationId,
+      eligibilityStatus: 'Eligible',
+    })
+  } catch (err) {
+    console.error('submitApplication error:', err)
+    return res.status(500).json({ error: err.message || 'Internal server error.' })
+  }
+}
+
+/**
+ * POST /api/application/finalize
+ */
+export async function finalizeApplication(req, res) {
+  const userId = req.user.id
+  const { transaction_id, payment_date } = req.body
+
+  if (!transaction_id || !payment_date) {
+    return res.status(400).json({ error: 'Transaction ID and Date are required.' })
+  }
+
+  try {
+    const existing = await prisma.application.findUnique({
+      where: { user_id: userId },
+    })
+
+    if (!existing) {
+      return res.status(404).json({ error: 'Application not found. Please save first.' })
+    }
+
+    if (existing.is_submitted) {
+      return res.status(400).json({ error: 'Application already submitted.' })
+    }
+
+    const updated = await prisma.application.update({
+      where: { id: existing.id },
+      data: {
+        transaction_id,
+        payment_date: new Date(payment_date),
+        is_submitted: true,
+        updated_at: new Date(),
+      },
+    })
+
     const adminUsers = await prisma.user.findMany({
       where: { isAdmin: true },
       select: { email: true },
     })
 
+    // Reuse the existing notification service or add a more specific one for final confirmations
     const notifications = await sendSubmissionNotificationEmails({
-      studentEmail: normalized.email,
-      studentName: normalized.name,
-      applicationId,
-      researchPref1: normalized.research_pref_1,
-      eligibilityStatus: 'Eligible',
+      studentEmail: updated.email,
+      studentName: updated.name,
+      applicationId: updated.id,
+      researchPref1: updated.research_area,
+      eligibilityStatus: updated.eligibility_status || 'Eligible',
       adminEmails: adminUsers.map((admin) => admin.email),
     })
 
     return res.status(200).json({
-      message: 'Application saved.',
-      id: applicationId,
-      eligibilityStatus: 'Eligible',
+      message: 'Application final submission successful!',
+      application: updated,
       notificationMode: notifications.demoMailMode ? 'demo' : 'smtp',
     })
   } catch (err) {
-    console.error('submitApplication error:', err)
+    console.error('finalizeApplication error:', err)
     return res.status(500).json({ error: err.message || 'Internal server error.' })
   }
 }
