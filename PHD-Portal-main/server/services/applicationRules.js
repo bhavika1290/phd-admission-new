@@ -77,6 +77,16 @@ export function evaluateEligibility({ category, education = [] }) {
   const threshold = getEligibilityThreshold(category)
   const issues = []
 
+  const tenthEntries = education.filter((item) => item.level === '10th')
+  if (!tenthEntries.length) {
+    issues.push('10th education details are required.')
+  } else if (!tenthEntries.some((entry) => {
+    const score = toNumber(entry.score_value)
+    return score !== null && score >= threshold
+  })) {
+    issues.push(`10th requires at least ${threshold}%.`)
+  }
+
   const twelfthEntries = education.filter((item) => item.level === '12th')
   if (!twelfthEntries.length) {
     issues.push('12th education details are required.')

@@ -38,13 +38,23 @@ async function sendMail(mailOptions) {
   return result
 }
 
-export async function sendOtpEmail({ to, otp, expiryMinutes }) {
-  const subject = 'Your PhD Portal Login Code'
+export async function sendBulkEmail({ to, subject, body }) {
+  const result = await sendMail({
+    from: `"PhD Portal Admissions" <${process.env.GMAIL_USER || 'no-reply@localhost'}>`,
+    to,
+    subject,
+    html: body,
+  })
+  return { result, demoMailMode }
+}
+
+export async function sendOtpEmail({ to, otp, expiryMinutes, subject: customSubject }) {
+  const subject = customSubject || 'Your PhD Portal Login Code'
   const text = `Your login code is: ${otp}. It will expire in ${expiryMinutes} minutes.`
   const html = `
     <div style="font-family: sans-serif; padding: 20px; color: #1e293b;">
-      <h2 style="color: #6366f1;">PhD Admission Portal</h2>
-      <p>You requested a login code for the Mathematics Department PhD Admission Portal.</p>
+      <h2 style="color: #6366f1;">PhD Admission Portal - IIT Ropar</h2>
+      <p>You requested a login code for the IIT Ropar PhD Admission Portal.</p>
       <div style="background: #f1f5f9; padding: 20px; border-radius: 12px; text-align: center; margin: 20px 0;">
         <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #4f46e5;">${otp}</span>
       </div>

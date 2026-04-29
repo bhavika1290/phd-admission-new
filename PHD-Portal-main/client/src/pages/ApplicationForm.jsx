@@ -4,11 +4,12 @@ import toast from 'react-hot-toast'
 import {
   User, BookOpen, Award, CheckSquare,
   Save, LogOut, GraduationCap, Loader2, RefreshCw,
-  Plus, Trash2,
+  Plus, Trash2, ArrowRight
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { submitApplication, getMyApplication } from '../services/api'
 import FormSection, { FieldWrapper } from '../components/FormSection'
+import LoadingScreen from '../components/LoadingScreen'
 import {
   BOARD_OPTIONS,
   CATEGORY_OPTIONS,
@@ -417,8 +418,9 @@ export default function ApplicationForm() {
     event.preventDefault()
     setSubmitError('')
 
-    if (!validate()) {
-      toast.error('Please fix the highlighted fields.')
+    // For "Save Draft", we only require basic info to identify the application
+    if (!form.first_name.trim()) {
+      toast.error('Please enter at least your first name to save a draft.')
       return
     }
 
@@ -431,8 +433,11 @@ export default function ApplicationForm() {
         const flattened = flattenEducationErrors(detail.details)
         setErrors((current) => ({ ...current, ...flattened }))
       }
-      setSubmitError(detail?.error || 'Something went wrong.')
-      toast.error(detail?.error || 'Something went wrong.')
+      // We don't want to show "Eligibility criteria not met" as a blocking error for drafts
+      if (detail?.error && detail.error !== 'Eligibility criteria not met.') {
+        setSubmitError(detail.error)
+        toast.error(detail.error)
+      }
     } finally {
       setSaving(false)
     }
@@ -476,60 +481,41 @@ export default function ApplicationForm() {
 
   const renderError = (path) => errors[path] || ''
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-hero-gradient flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mx-auto mb-3" />
-          <p className="text-white/40">Loading your application...</p>
-        </div>
-      </div>
-    )
-  }
+  if (loading) return <LoadingScreen />
 
   return (
-    <div className="min-h-screen bg-hero-gradient">
-      <header className="sticky top-0 z-50 bg-dark-900/80 backdrop-blur-md border-b border-white/5">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#001122] selection:bg-[#003366]/20">
+      {/* Background Effects */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#003366]/5 rounded-full blur-[140px]" />
+      </div>
+
+      <header className="sticky top-0 z-50 bg-[#F8FAFC]/90 backdrop-blur-[30px] border-b border-blue-100 shadow-sm">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary-gradient flex items-center justify-center">
-              <GraduationCap size={16} className="text-white" />
+          <div className="flex items-center gap-6 group cursor-pointer" onClick={() => navigate('/')}>
+            <div className="w-12 h-12 rounded-2xl bg-[#003366] flex items-center justify-center shadow-xl transition-all border border-white/20">
+              <GraduationCap size={24} className="text-white" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">PhD Application</p>
-              <p className="text-xs text-white/40">Mathematics Department · IIT Ropar</p>
+              <p className="text-[15px] font-bold text-[#001122] tracking-widest uppercase">Ph.D Admissions</p>
+              <p className="text-[10px] font-black text-[#003366] uppercase tracking-[0.3em] opacity-40">IIT ROPAR · 2026</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-white/40 hidden sm:block">{user?.email}</span>
-            <button id="btn-signout" onClick={handleSignOut} className="btn-secondary py-2 px-4 text-sm flex items-center gap-2">
-              <LogOut size={14} /> Sign Out
+          <div className="flex items-center gap-8">
+            <span className="text-[11px] text-[#001122] font-black hidden sm:block tracking-widest uppercase opacity-60">{user?.email}</span>
+            <button id="btn-signout" onClick={handleSignOut} className="px-7 py-3 rounded-full bg-white border border-blue-100 text-[#003366] text-[10px] font-black uppercase tracking-widest hover:bg-[#003366] hover:text-white transition-all shadow-sm">
+              <LogOut size={16} /> Sign Out
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        <div className="mb-8 animate-slide-up">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold font-heading text-white">
-              {isEdit ? 'Edit Your Application' : 'PhD Application Form'}
-            </h1>
-            {isEdit && (
-              <span className="badge bg-success-500/20 text-success-500 border border-success-500/30">
-                Submitted
-              </span>
-            )}
+      <main className="max-w-5xl mx-auto px-4 py-16 relative z-10">
+        {submitError && (
+          <div className="mb-12 animate-fade-up rounded-2xl border-2 border-red-100 bg-red-50 px-8 py-4 text-xs font-black uppercase tracking-widest text-red-600">
+            {submitError}
           </div>
-          <p className="text-white/50">
-            Complete all sections and submit your application.
-          </p>
-          {submitError && (
-            <div className="mt-4 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {submitError}
-            </div>
-          )}
-        </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <FormSection icon={User} title="Personal Info" subtitle="Applicant identity and contact details">
@@ -1141,7 +1127,7 @@ export default function ApplicationForm() {
             )}
 
             <div className="md:col-span-2">
-              <label htmlFor="field-nbhm" className="flex items-center gap-4 p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:border-primary-500/50 transition-all">
+              <label htmlFor="field-nbhm" className="flex items-center gap-4 p-6 rounded-2xl bg-blue-50/30 border border-blue-100 cursor-pointer hover:border-[#003366]/50 transition-all">
                 <div className="relative">
                   <input
                     id="field-nbhm"
@@ -1150,28 +1136,28 @@ export default function ApplicationForm() {
                     onChange={(e) => setField('nbhm_eligible', e.target.checked)}
                     className="sr-only"
                   />
-                  <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${
-                    form.nbhm_eligible ? 'bg-primary-600 border-primary-600' : 'border-white/30 bg-white/5'
+                  <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all ${
+                    form.nbhm_eligible ? 'bg-[#003366] border-[#003366]' : 'border-blue-200 bg-white'
                   }`}>
                     {form.nbhm_eligible && (
-                      <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
                     )}
                   </div>
                 </div>
                 <div>
-                  <p className="text-white font-medium">I am eligible for NBHM</p>
-                  <p className="text-white/40 text-sm mt-0.5">National Board for Higher Mathematics scholarship eligibility</p>
+                  <p className="text-[#001122] font-bold">I am eligible for NBHM</p>
+                  <p className="text-[#001122]/50 text-xs mt-1 uppercase tracking-widest font-black">National Board for Higher Mathematics</p>
                 </div>
               </label>
             </div>
           </FormSection>
 
           <FormSection icon={CheckSquare} title="Declaration" subtitle="Please read and accept before submission">
-            <div className="md:col-span-2 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-white/70 leading-relaxed">
-              <p className="font-semibold text-white mb-2">DECLARATION</p>
-              <p>
+            <div className="md:col-span-2 rounded-[24px] border border-blue-100 bg-white p-10 text-sm text-[#001122] leading-relaxed shadow-sm">
+              <p className="font-black text-[#003366] uppercase tracking-widest mb-6 border-b border-blue-50 pb-4">OFFICIAL DECLARATION</p>
+              <p className="opacity-80">
                 I hereby declare that I have carefully read the instructions and particulars supplied to me and that the entries
                 made in this application form are correct to the best of my knowledge and belief. If selected for admission,
                 I promise to abide by the rules and discipline of the Institute. I note that the decision of the Institute is
@@ -1182,52 +1168,61 @@ export default function ApplicationForm() {
               </p>
             </div>
 
-            <div className="md:col-span-2">
-              <label htmlFor="field-declaration" className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:border-primary-500/50 transition-all">
+            <div className="md:col-span-2 mt-4">
+              <label htmlFor="field-declaration" className="flex items-start gap-4 p-8 rounded-[24px] bg-white border border-blue-100 cursor-pointer hover:border-[#003366] transition-all shadow-sm">
                 <input
                   id="field-declaration"
                   type="checkbox"
                   checked={form.declaration_accepted}
                   onChange={(e) => setField('declaration_accepted', e.target.checked)}
-                  className="mt-1"
+                  className="mt-1 w-6 h-6 border-blue-200 rounded text-[#003366]"
                 />
                 <div>
-                  <p className="text-white font-medium">I have read and accept the declaration.</p>
+                  <p className="text-[#001122] font-bold text-lg">I have read and accept the declaration.</p>
                   {renderError('declaration_accepted') && (
-                    <p className="text-xs text-red-300 mt-1">{renderError('declaration_accepted')}</p>
+                    <p className="text-xs text-red-600 mt-2 font-black uppercase tracking-widest">{renderError('declaration_accepted')}</p>
                   )}
                 </div>
               </label>
             </div>
           </FormSection>
+          <div className="sticky bottom-8 z-40 animate-slide-up">
+            <div className="glass-card !p-6 border-blue-100 shadow-[0_40px_80px_-20px_rgba(0,15,31,0.15)] flex flex-wrap items-center justify-between gap-6 backdrop-blur-2xl bg-white/95">
+              <div className="flex items-center gap-5 px-6">
+                <CheckSquare size={24} className={form.declaration_accepted ? 'text-[#003366]' : 'text-[#001122]/20'} />
+                <div className="hidden sm:block">
+                  <p className="text-[10px] font-black uppercase tracking-widest leading-none mb-1 text-[#001122]/40">Status</p>
+                  <p className="text-xs font-bold text-[#001122]">{isEdit ? 'Draft Verified' : 'Registry in Progress'}</p>
+                </div>
+              </div>
 
-          <div className="flex justify-end gap-4 pt-2 pb-8">
-            <button id="btn-submit-application" type="submit" disabled={saving} className="btn-secondary flex items-center gap-2 px-8">
-              {saving ? (
-                <><Loader2 size={16} className="animate-spin" /> Saving...</>
-              ) : isEdit ? (
-                <><RefreshCw size={16} /> Save Application</>
-              ) : (
-                <><Save size={16} /> Save Application</>
-              )}
-            </button>
-
-            <button
-              id="btn-proceed-payment"
-              type="button"
-              onClick={handleProceedToPayment}
-              disabled={saving}
-              className="btn-primary flex items-center gap-2 px-8"
-            >
-              {saving ? (
-                <><Loader2 size={16} className="animate-spin" /> Saving...</>
-              ) : (
-                <>Proceed to Payment</>
-              )}
-            </button>
+              <div className="flex items-center gap-6">
+                <button
+                  id="btn-submit-application"
+                  type="submit"
+                  disabled={saving}
+                  className="px-8 py-4 rounded-2xl bg-white border border-blue-100 font-black text-[11px] text-[#003366] hover:bg-[#003366] hover:text-white transition-all flex items-center gap-3 uppercase tracking-widest shadow-sm"
+                >
+                  {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                  <span>{isEdit ? 'Archive Change' : 'Secure Draft'}</span>
+                </button>
+                <button
+                  id="btn-proceed-payment"
+                  type="button"
+                  onClick={handleProceedToPayment}
+                  disabled={saving}
+                  className="btn-saffron !px-12 h-14 flex items-center gap-4 !rounded-2xl scale-105"
+                >
+                  <span className="font-black uppercase tracking-widest text-[11px]">Proceed to Payment</span>
+                  <ArrowRight size={20} />
+                </button>
+              </div>
+            </div>
           </div>
+
         </form>
       </main>
     </div>
   )
 }
+

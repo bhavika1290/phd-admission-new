@@ -2,158 +2,123 @@ import React from 'react'
 import { ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
 
 const CATEGORY_COLORS = {
-  GEN: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  OBC: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-  SC: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  ST: 'bg-green-500/20 text-green-300 border-green-500/30',
+  GEN: 'bg-blue-50/50 text-black border-blue-200',
+  OBC: 'bg-blue-100/40 text-black border-black/10',
+  SC: 'bg-blue-200/20 text-black border-black/20',
+  ST: 'bg-[#003366] text-white border-white/20',
 }
 
 function SortIcon({ column, sortBy, order }) {
-  if (sortBy !== column) return <ChevronsUpDown size={12} className="text-white/20" />
+  if (sortBy !== column) return <ChevronsUpDown size={14} className="text-[#003366]/30" />
   return order === 'asc'
-    ? <ChevronUp size={12} className="text-primary-400" />
-    : <ChevronDown size={12} className="text-primary-400" />
+    ? <ChevronUp size={14} className="text-[#003366] font-black" />
+    : <ChevronDown size={14} className="text-[#003366] font-black" />
 }
 
 function fmtScore(row) {
   if (!row) return '—'
   if (row.score_value == null && row.score == null) return '—'
   if (row.score_value != null) {
-    return row.score_type === 'cgpa'
-      ? `${row.score_value} CGPA`
-      : `${row.score_value}%`
+    return row.score_type === 'cgpa' ? `${row.score_value} CGPA` : `${row.score_value}%`
   }
   return row.score
 }
 
-function fmtExam(row) {
-  if (!row) return '—'
-  const parts = []
-  if (row.exam_name) parts.push(row.exam_name)
-  if (row.score != null) parts.push(`Score ${row.score}`)
-  if (row.percentile != null) parts.push(`Pct ${row.percentile}`)
-  if (row.rank != null) parts.push(`Rank ${row.rank}`)
-  if (row.air != null) parts.push(`All India Rank ${row.air}`)
-  return parts.length ? parts.join(' · ') : '—'
-}
-
-function fmtEducationSummary(rows = []) {
-  if (!rows.length) return '—'
-  return rows.map((row) => {
-    const degree = row.custom_degree_name || row.degree_name || 'Degree'
-    const score = fmtScore(row)
-    return `${degree} ${score !== '—' ? `(${score})` : ''}`.trim()
-  }).join(', ')
-}
-
 function fmtResearch(app) {
   const prefs = [app.research_pref_1, app.research_pref_2].filter(Boolean)
-  if (!prefs.length) return '—'
-  return prefs.join(' • ')
+  return prefs.length ? prefs.join(' · ') : '—'
 }
 
-function SortableHeader({ column, label, sortBy, order, onSort }) {
-  return (
-    <th
-      className="px-4 py-3 font-semibold tracking-wider cursor-pointer hover:text-white/80 select-none"
-      onClick={() => onSort(column)}
-    >
-      <div className="flex items-center gap-1.5">
-        {label}
-        <SortIcon column={column} sortBy={sortBy} order={order} />
-      </div>
-    </th>
-  )
+const COLUMN_RENDERERS = {
+  name: (app) => (
+    <div className="space-y-1">
+      <p className="font-bold text-black text-[16px] capitalize tracking-tight">{app.full_name || app.name}</p>
+      <p className="text-[12px] text-[#003366] font-mono tracking-tighter font-bold">REF: {app.id}</p>
+    </div>
+  ),
+  email: (app) => <p className="text-[13px] font-bold text-[#4169E1] lowercase italic">{app.email || '—'}</p>,
+  gender: (app) => <span className="text-[12px] font-black uppercase tracking-widest text-[#003366]/80">{app.gender || '—'}</span>,
+  category: (app) => (
+    <span className={`px-5 py-2 rounded-full text-[11px] font-black uppercase tracking-widest border border-[#003366]/20 ${CATEGORY_COLORS[app.category] || 'bg-white'}`}>
+      {app.category || '—'}
+    </span>
+  ),
+  study_mode: (app) => <span className="text-[12px] font-black uppercase tracking-widest text-[#003366]/80">{app.study_mode || '—'}</span>,
+  research_area: (app) => <p className="text-[13px] font-black text-black leading-relaxed max-w-[240px]">{fmtResearch(app)}</p>,
+  phone: (app) => <p className="text-[13px] font-mono text-[#003366] font-bold tracking-widest">{app.phone || '—'}</p>,
+  score_10th: (app) => <p className="text-[13px] font-black text-black">{fmtScore(app.pct_10th)}</p>,
+  score_12th: (app) => <p className="text-[13px] font-black text-black">{fmtScore(app.pct_12th)}</p>,
+  score_grad: (app) => <p className="text-[13px] font-black text-black">{fmtScore(app.pct_grad)}</p>,
+  score_pg: (app) => (
+    <p className="text-[13px] font-black text-black max-w-[200px]">
+      {(app.pct_pg || []).map(p => fmtScore(p)).join(', ') || '—'}
+    </p>
+  ),
+  exam_details: (app) => <p className="text-[13px] font-bold text-black max-w-[250px] leading-snug">{app.exam_details || '—'}</p>,
+  eligibility: (app) => (
+    <div className="flex items-center gap-3">
+      <div className={`w-2.5 h-2.5 rounded-full ${app.eligibility_status === 'Eligible' ? 'bg-[#4169E1]' : 'bg-red-600'}`} />
+      <span className="text-[12px] font-black uppercase tracking-widest text-black">{app.eligibility_status || 'Pending'}</span>
+    </div>
+  ),
+  created_at: (app) => <p className="text-[13px] font-mono text-[#003366] font-bold italic">{app.created_at ? new Date(app.created_at).toLocaleDateString() : '—'}</p>,
 }
 
-export default function ApplicantsTable({ data, loading, sortBy, order, onSort }) {
+export default function ApplicantsTable({ data, loading, sortBy, order, onSort, visibleColumns = [] }) {
   if (loading) {
     return (
-      <div className="glass-card p-12 flex items-center justify-center">
-        <div className="text-center">
-          <div className="spinner mx-auto mb-3" />
-          <p className="text-white/40 text-sm">Loading applicants...</p>
-        </div>
+      <div className="glass-card !p-16 flex flex-col items-center justify-center border-blue-50 bg-white">
+        <div className="spinner mb-8 border-t-[#003366]" />
+        <p className="text-[12px] font-black text-[#003366] uppercase tracking-[0.4em] animate-pulse">Synchronizing Registry Core...</p>
       </div>
     )
   }
 
-  if (!data || data.length === 0) {
+  if (!data?.length) {
     return (
-      <div className="glass-card p-12 text-center">
-        <p className="text-white/40 text-lg">No applicants found matching the filters.</p>
+      <div className="glass-card !p-20 text-center border-blue-50 bg-white">
+        <p className="text-[13px] font-black text-[#003366] uppercase tracking-[0.3em]">No discovered registry protocols</p>
       </div>
     )
   }
+
+  const columnsToShow = visibleColumns.length ? visibleColumns : ['name', 'email', 'category', 'research_area', 'eligibility', 'created_at']
 
   return (
-    <div className="glass-card overflow-hidden">
+    <div className="glass-card !p-0 overflow-hidden shadow-2xl border-[#003366]/10 bg-white">
       <div className="overflow-x-auto">
-        <table className="data-table min-w-[1200px]">
+        <table className="w-full text-left border-collapse">
           <thead>
-            <tr>
-              <th className="px-4 py-3 font-semibold tracking-wider">#</th>
-              <SortableHeader column="name" label="Applicant" sortBy={sortBy} order={order} onSort={onSort} />
-              <th className="px-4 py-3 font-semibold tracking-wider">Category</th>
-              <th className="px-4 py-3 font-semibold tracking-wider">Research Preferences</th>
-              <th className="px-4 py-3 font-semibold tracking-wider">Education</th>
-              <th className="px-4 py-3 font-semibold tracking-wider">Exam Details</th>
-              <th className="px-4 py-3 font-semibold tracking-wider">Eligibility</th>
-              <th className="px-4 py-3 font-semibold tracking-wider">New</th>
-              <SortableHeader column="created_at" label="Applied" sortBy={sortBy} order={order} onSort={onSort} />
+            <tr className="bg-blue-50 border-b border-[#003366]/20">
+              <th className="px-8 py-6 text-[11px] font-black text-[#003366] uppercase tracking-[0.3em] w-20">Idx</th>
+              {columnsToShow.map(colId => {
+                const isSortable = ['name', 'created_at', 'category'].includes(colId)
+                return (
+                  <th 
+                    key={colId}
+                    onClick={() => isSortable && onSort(colId)}
+                    className={`px-8 py-6 text-[11px] font-black text-[#003366] uppercase tracking-[0.3em] ${isSortable ? 'cursor-pointer hover:bg-blue-100 transition-colors' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                       {colId.replace(/_/g, ' ')}
+                       {isSortable && <SortIcon column={colId} sortBy={sortBy} order={order} />}
+                    </div>
+                  </th>
+                )
+              })}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-[#003366]/10">
             {data.map((app, idx) => (
-              <tr key={app.id}>
-                <td className="px-4 py-3 text-white/40 text-xs">{idx + 1}</td>
-                <td className="px-4 py-3">
-                  <div>
-                    <p className="font-medium text-white">{app.full_name || app.name}</p>
-                    <p className="text-xs text-white/40 mt-0.5">{app.email || '—'}</p>
-                    <p className="text-[11px] text-white/30 mt-1">{app.gender || '—'} · {app.study_mode || '—'}</p>
-                  </div>
+              <tr key={app.id} className="hover:bg-blue-50/50 transition-all duration-300">
+                <td className="px-8 py-8 text-[12px] font-mono text-[#003366] font-black tracking-widest border-r border-[#003366]/05">
+                  {String(idx + 1).padStart(2, '0')}
                 </td>
-                <td className="px-4 py-3">
-                  <span className={`badge border ${CATEGORY_COLORS[app.category] || 'bg-white/10 text-white/60 border-white/10'}`}>
-                    {app.category || '—'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-white/70 text-xs max-w-[200px]">
-                  {fmtResearch(app)}
-                </td>
-                <td className="px-4 py-3 text-white/70 text-xs max-w-[220px]">
-                  {fmtEducationSummary(app.education_summary?.postGraduation || app.pct_pg || [])}
-                </td>
-                <td className="px-4 py-3 text-white/70 text-xs max-w-[240px]">
-                  {Array.isArray(app.exam_details) && app.exam_details.length
-                    ? app.exam_details.map((row) => fmtExam(row)).join(' | ')
-                    : '—'}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`badge border ${
-                      app.eligibility_status === 'Eligible'
-                        ? 'bg-success-500/20 text-success-500 border-success-500/30'
-                        : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                    }`}
-                  >
-                    {app.eligibility_status || 'Pending'}
-                  </span>
-                  {app.eligibility_message && (
-                    <p className="text-[11px] text-white/35 mt-1 max-w-[180px]">{app.eligibility_message}</p>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  {app.is_new_application ? (
-                    <span className="badge bg-accent-500/20 text-accent-300 border border-accent-500/30">New Application</span>
-                  ) : (
-                    <span className="badge bg-white/5 text-white/40 border border-white/10">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-white/40 text-xs">
-                  {app.created_at ? new Date(app.created_at).toLocaleDateString() : '—'}
-                </td>
+                {columnsToShow.map(colId => (
+                  <td key={colId} className="px-8 py-8">
+                    {COLUMN_RENDERERS[colId] ? COLUMN_RENDERERS[colId](app) : '—'}
+                  </td>
+                ))}
               </tr>
             ))}
           </tbody>

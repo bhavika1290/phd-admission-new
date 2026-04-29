@@ -9,92 +9,253 @@ datasource db {
 }
 
 model User {
-  id          String       @id @default(cuid())
-  email       String       @unique
-  name        String?
-  isAdmin     Boolean      @default(false)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  Application Application?
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  isAdmin       Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  password      String?
+  role          Role           @default(APPLICANT)
+  Application   Application?
+  SentMessages  Message[]      @relation("SentMessages")
+  RefreshTokens RefreshToken[]
 
   @@map("users")
 }
 
-model Application {
-  id               String       @id @default(cuid())
-  user_id          String       @unique
-  user             User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  first_name       String?
-  last_name        String?
-  gender           String?
-  email            String?
-  name             String
-  dob              DateTime?
-  category         String?
-  marital_status   String?
-  nationality      String?      @default("Indian")
-  research_area    String?
-  research_pref_1  String?
-  research_pref_2  String?
-  study_mode       String?
-  address          String?
-  phone            String?
-  declaration_accepted Boolean   @default(false)
-  nbhm_eligible    Boolean      @default(false)
-  eligibility_status  String?
-  eligibility_message String?
-  transaction_id   String?
-  payment_date     DateTime?
-  is_submitted     Boolean      @default(false)
-  created_at       DateTime     @default(now())
-  updated_at       DateTime     @default(now())
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  education        Education[]
-  exam_scores      ExamScore[]
+  @@map("refresh_tokens")
+}
+
+model Application {
+  id                   String                     @id @default(cuid())
+  user_id              String                     @unique
+  email                String?
+  name                 String
+  dob                  DateTime?
+  category             String?
+  marital_status       String?
+  nationality          String?                    @default("Indian")
+  research_area        String?
+  address              String?
+  phone                String?
+  nbhm_eligible        Boolean                    @default(false)
+  created_at           DateTime                   @default(now())
+  updated_at           DateTime                   @default(now())
+  declaration_accepted Boolean                    @default(false)
+  eligibility_message  String?
+  eligibility_status   String?
+  first_name           String?
+  gender               String?
+  last_name            String?
+  research_pref_1      String?
+  research_pref_2      String?
+  study_mode           String?
+  is_submitted         Boolean                    @default(false)
+  payment_date         DateTime?
+  transaction_id       String?
+  status               String                     @default("pending")
+  status_updated_at    DateTime?
+  applicationDraftId   String?
+  department_id        String?
+  interview_slot_id    String?
+  merit_score          Float?
+  payment_amount       Float?
+  payment_status       String                     @default("pending")
+  rank                 Int?
+  status_note          String?
+  status_history       ApplicationStatusHistory[]
+  draft                ApplicationDraft?          @relation(fields: [applicationDraftId], references: [id])
+  interview_slot       InterviewSlot?             @relation(fields: [interview_slot_id], references: [id])
+  user                 User                       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  education            Education[]
+  exam_scores          ExamScore[]
+  interviews           Interview[]
+  messages             Message[]
 
   @@map("applications")
 }
 
 model Education {
-  id             Int         @id @default(autoincrement())
-  application_id String
-  level          String
-  board          String?
-  degree_name    String?
+  id                 Int         @id @default(autoincrement())
+  application_id     String
+  level              String
+  discipline         String?
+  institute          String?
+  study_type         String?
+  year               Int?
+  score_type         String?
+  score_value        Float?
+  division           String?
+  board              String?
+  cfti_status        String?
   custom_degree_name String?
-  cfti_status    String?
-  discipline     String?
-  institute      String?
-  study_type     String?
-  year           Int?
-  year_of_passing Int?
-  score_type     String?     // 'percentage' or 'cgpa'
-  score_value    Float?      // The actual value (0-100 for %, 0-10 for CGPA)
-  division       String?
-
-  application    Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  degree_name        String?
+  year_of_passing    Int?
+  application        Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
 
   @@map("education")
 }
 
 model ExamScore {
-  id             Int         @id @default(autoincrement())
-  application_id String
-  exam_type      String
-  exam_name      String?
+  id               Int         @id @default(autoincrement())
+  application_id   String
+  exam_type        String
+  branch           String?
+  year             Int?
+  valid_upto       String?
+  percentile       Float?
+  score            Float?
+  air              Int?
+  duration         String?
   custom_exam_name String?
-  branch         String?
-  year           Int?
-  valid_upto     String?     // e.g. "March 2026"
-  percentile     Float?
-  rank           Int?
-  score          Float?
-  air            Int?        // All India Rank (GATE only)
-  duration       String?     // e.g. "JRF" or "SRF" (CSIR only)
-
-  application    Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
+  exam_name        String?
+  rank             Int?
+  application      Application @relation(fields: [application_id], references: [id], onDelete: Cascade)
 
   @@map("exam_scores")
+}
+
+model ApplicationStatusHistory {
+  id             String       @id @default(cuid())
+  application_id String
+  status         String
+  new_status     String
+  note           String?
+  updated_by     String?
+  created_at     DateTime     @default(now())
+  applicationId  String?
+  application    Application? @relation(fields: [applicationId], references: [id])
+
+  @@map("application_status_history")
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  user_id    String
+  type       String
+  title      String
+  message    String
+  is_read    Boolean  @default(false)
+  link       String?
+  created_at DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model Announcement {
+  id         String    @id @default(cuid())
+  title      String
+  content    String
+  priority   String    @default("normal")
+  is_active  Boolean   @default(true)
+  start_date DateTime?
+  end_date   DateTime?
+  created_by String?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  @@map("announcements")
+}
+
+model EmailTemplate {
+  id         String   @id @default(cuid())
+  subject    String
+  body       String
+  created_at DateTime @default(now())
+  is_active  Boolean  @default(true)
+  name       String   @unique
+  updated_at DateTime @updatedAt
+  variables  String[]
+
+  @@map("email_templates")
+}
+
+model Interview {
+  id             String       @id @default(cuid())
+  application_id String
+  interview_date DateTime
+  time_slot      String
+  venue          String?
+  mode           String       @default("offline")
+  meeting_link   String?
+  status         String       @default("scheduled")
+  feedback       String?
+  score          Int?
+  created_at     DateTime     @default(now())
+  updated_at     DateTime     @updatedAt
+  applicationId  String?
+  application    Application? @relation(fields: [applicationId], references: [id])
+
+  @@map("interviews")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  user_id     String?
+  action      String
+  entity_type String
+  entity_id   String?
+  details     String?
+  ip_address  String?
+  created_at  DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  @@map("departments")
+}
+
+model AdmissionCalendar {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  event_type  String
+  event_date  DateTime
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("admission_calendar")
+}
+
+model Webhook {
+  id         String   @id @default(cuid())
+  name       String
+  url        String
+  events     String[]
+  is_active  Boolean  @default(true)
+  secret     String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("webhooks")
+}
+
+model ApplicationDraft {
+  id           String        @id @default(cuid())
+  user_id      String        @unique
+  data         String
+  last_saved   DateTime      @default(now())
+  applications Application[]
+
+  @@map("application_drafts")
 }
 
 model OneTimePassword {
@@ -106,4 +267,46 @@ model OneTimePassword {
 
   @@index([email])
   @@map("otps")
+}
+
+model SignupRequest {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("signup_requests")
+}
+
+model InterviewSlot {
+  id                   String        @id @default(cuid())
+  startTime            DateTime
+  endTime              DateTime
+  location             String?
+  maxCandidates        Int           @default(1)
+  assignedApplications Application[]
+
+  @@map("interview_slots")
+}
+
+model Message {
+  id            String      @id @default(cuid())
+  applicationId String
+  senderId      String
+  content       String
+  createdAt     DateTime    @default(now())
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  sender        User        @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@map("messages")
+}
+
+enum Role {
+  APPLICANT
+  DEPARTMENT_ADMIN
+  HOD
+  SUPER_ADMIN
 }
