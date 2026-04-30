@@ -18,23 +18,80 @@ import {
   getMessages
 } from '../services/api'
 import LoadingScreen from '../components/LoadingScreen'
+import ApplicationForm from './ApplicationForm'
 
-const STATUS_STEPS = [
-  { id: 'submitted', label: 'Submitted', description: 'Application received' },
-  { id: 'under_review', label: 'Under Review', description: 'Faculty assessment' },
-  { id: 'shortlisted', label: 'Shortlisted', description: 'Eligible for interview' },
-  { id: 'interview', label: 'Interview', description: 'Oral examination' },
-  { id: 'selected', label: 'Selected', description: 'Admission offered' },
-]
+const getTimelineData = (status, isSubmitted) => {
+  let currentStep = 0;
+  
+  if (!isSubmitted) {
+    currentStep = 1;
+  } else if (['submitted', 'under_review'].includes(status)) {
+    currentStep = 2;
+  } else if (['shortlisted', 'waitlisted', 'rejected'].includes(status)) {
+    currentStep = 3;
+  } else if (status === 'selected') {
+    currentStep = 4;
+  } else {
+    currentStep = 2; // fallback
+  }
 
-const STATUS_MAP = {
-  'draft': 0,
-  'submitted': 1,
-  'under_review': 2,
-  'shortlisted': 3,
-  'waitlisted': 3, // Waitlisted is still considered shortlisted in the timeline
-  'selected': 5,
-  'rejected': -1
+  const isScreened = ['shortlisted', 'waitlisted', 'rejected'].includes(status);
+  const screeningLabel = isScreened 
+    ? status.charAt(0).toUpperCase() + status.slice(1) 
+    : 'Screening';
+
+  let screeningDesc = 'Outcome pending';
+  let screeningColor = 'bg-[#003366] border-blue-100';
+  let screeningIcon = null;
+
+  if (status === 'rejected') {
+    screeningDesc = 'Application not successful';
+    screeningColor = 'bg-red-500 border-red-100';
+    screeningIcon = <XCircle size={12} className="text-white" />;
+  } else if (status === 'waitlisted') {
+    screeningDesc = 'Placed on waitlist';
+    screeningColor = 'bg-amber-500 border-amber-100';
+  } else if (status === 'shortlisted') {
+    screeningDesc = 'Eligible for interview';
+  }
+
+  const steps = [
+    { 
+      id: 'not_submitted', 
+      label: 'Not Submitted', 
+      description: 'Draft or incomplete',
+      isActive: currentStep === 1,
+      isCompleted: currentStep > 1,
+      color: 'bg-[#003366] border-blue-100'
+    },
+    { 
+      id: 'pending', 
+      label: 'Pending', 
+      description: 'Under review',
+      isActive: currentStep === 2,
+      isCompleted: currentStep > 2,
+      color: 'bg-[#003366] border-blue-100'
+    },
+    { 
+      id: 'screening', 
+      label: screeningLabel, 
+      description: screeningDesc,
+      isActive: currentStep === 3,
+      isCompleted: currentStep > 3 && status !== 'rejected',
+      color: currentStep === 3 ? screeningColor : 'bg-[#003366] border-blue-100',
+      icon: screeningIcon
+    },
+    { 
+      id: 'selected', 
+      label: 'Selected', 
+      description: 'Admission offered',
+      isActive: currentStep === 4,
+      isCompleted: currentStep > 4,
+      color: 'bg-[#003366] border-blue-100'
+    },
+  ]
+
+  return { steps, currentStep }
 }
 
 export default function StudentDashboard() {
@@ -47,6 +104,7 @@ export default function StudentDashboard() {
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [sendingMessage, setSendingMessage] = useState(false)
+  const [activeView, setActiveView] = useState('overview')
   const chatEndRef = useRef(null)
 
   useEffect(() => {
@@ -106,8 +164,7 @@ export default function StudentDashboard() {
 
   if (loading) return <LoadingScreen />
 
-  const currentStep = STATUS_MAP[application?.status] || 0
-  const isRejected = application?.status === 'rejected'
+  const timelineData = getTimelineData(application?.status, application?.is_submitted)
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -138,9 +195,11 @@ export default function StudentDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-10">
-        {/* Left: Main Content */}
-        <div className="lg:col-span-2 space-y-10">
+      <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+        {activeView === 'overview' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            {/* Left: Main Content */}
+            <div className="lg:col-span-2 space-y-10">
           {/* Progress Timeline */}
           <section className="glass-card !p-10 border-blue-100 shadow-xl bg-white">
             <h2 className="text-xl font-bold font-heading text-[#003366] mb-10 flex items-center gap-3">
@@ -151,21 +210,18 @@ export default function StudentDashboard() {
             <div className="relative">
               <div className="absolute left-6 top-0 bottom-0 w-1 bg-blue-50" />
               <div className="space-y-12">
-                {STATUS_STEPS.map((step, idx) => {
-                  const isActive = currentStep >= idx + 1
-                  const isCompleted = currentStep > idx + 1
-                  
+                {timelineData.steps.map((step) => {
                   return (
                     <div key={step.id} className="relative pl-16">
                       <div className={`absolute left-4 -translate-x-1/2 w-6 h-6 rounded-full border-4 flex items-center justify-center z-10 transition-all duration-500 ${
-                        isCompleted ? 'bg-green-500 border-green-100 scale-125' : 
-                        isActive ? 'bg-[#003366] border-blue-100 scale-110 shadow-lg' : 
+                        step.isCompleted ? 'bg-green-500 border-green-100 scale-125' : 
+                        step.isActive ? `${step.color} scale-110 shadow-lg` : 
                         'bg-white border-blue-50'
                       }`}>
-                        {isCompleted && <CheckCircle size={12} className="text-white" />}
+                        {step.isCompleted ? <CheckCircle size={12} className="text-white" /> : step.icon}
                       </div>
                       <div>
-                        <h3 className={`text-sm font-black uppercase tracking-widest ${isActive ? 'text-[#003366]' : 'text-slate-300'}`}>
+                        <h3 className={`text-sm font-black uppercase tracking-widest ${step.isActive || step.isCompleted ? (step.label === 'Rejected' ? 'text-red-500' : 'text-[#003366]') : 'text-slate-300'}`}>
                           {step.label}
                         </h3>
                         <p className="text-xs text-slate-400 mt-1 font-medium italic">{step.description}</p>
@@ -173,20 +229,23 @@ export default function StudentDashboard() {
                     </div>
                   )
                 })}
-                {isRejected && (
-                  <div className="relative pl-16">
-                    <div className="absolute left-4 -translate-x-1/2 w-6 h-6 rounded-full bg-red-500 border-4 border-red-100 flex items-center justify-center z-10">
-                      <XCircle size={12} className="text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-black uppercase tracking-widest text-red-500">Rejected</h3>
-                      <p className="text-xs text-slate-400 mt-1">Application not successful this session</p>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </section>
+
+          {application?.status_note && (
+            <div className="glass-card !p-8 bg-[#003366] border-[#003366] shadow-xl text-white mb-6">
+              <div className="flex items-start gap-5">
+                <div className="p-3 rounded-full bg-white/10 text-white flex-shrink-0">
+                  <AlertCircle size={28} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white/70 mb-2">Message from Admission Committee</h3>
+                  <p className="text-base font-medium leading-relaxed">{application.status_note}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Quick Actions & Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -206,10 +265,10 @@ export default function StudentDashboard() {
                   <span className="font-bold text-[#003366] uppercase">{application?.study_mode || 'Full Time'}</span>
                 </div>
                 <button 
-                  onClick={() => navigate('/application')}
+                  onClick={() => setActiveView('application')}
                   className="w-full mt-6 py-4 bg-blue-50 text-[#003366] rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-100 transition-all"
                 >
-                  View Full Profile
+                  {application?.is_submitted ? 'View/Edit Application' : 'Complete Application'}
                 </button>
               </div>
             </div>
@@ -308,8 +367,20 @@ export default function StudentDashboard() {
                   <p className="text-[10px] text-slate-300 italic font-black uppercase tracking-widest">No active system alerts</p>
                 )}
              </div>
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="animate-fade-up">
+            <ApplicationForm 
+              isEmbedded={true} 
+              onBack={() => {
+                setActiveView('overview')
+                fetchDashboardData()
+              }} 
+            />
+          </div>
+        )}
       </main>
     </div>
   )

@@ -36,7 +36,7 @@ function ProtectedRoute({ children, requireAdmin = false }) {
 function PublicRoute({ children }) {
   const { user, isAdmin, loading } = useAuth()
   if (loading) return <LoadingScreen />
-  if (user) return <Navigate to={isAdmin ? '/admin' : '/apply'} replace />
+  if (user) return <Navigate to={isAdmin ? '/admin' : '/dashboard'} replace />
   return children
 }
 
@@ -49,7 +49,6 @@ function AppRoutes() {
       <Route path="/guidelines" element={<GuidelinesPage />} />
       
       {/* Student Routes */}
-      <Route path="/apply" element={<ProtectedRoute><ApplicationForm /></ProtectedRoute>} />
       <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><StudentDashboard /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />

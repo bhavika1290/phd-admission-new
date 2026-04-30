@@ -114,8 +114,8 @@ export default function AdminApplicants() {
       }
       await exportApplications(params)
       toast.success('Excel compiled successfully')
-    } catch {
-      toast.error('Export failure')
+    } catch (err) {
+      toast.error(`Export failure: ${err.message}`)
     } finally {
       setExporting(false)
     }

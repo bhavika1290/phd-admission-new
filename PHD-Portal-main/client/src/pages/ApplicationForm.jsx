@@ -153,7 +153,7 @@ function isBlankExamRow(row) {
     && !String(row.air || '').trim()
 }
 
-export default function ApplicationForm() {
+export default function ApplicationForm({ isEmbedded = false, onBack }) {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const paymentUrl = import.meta.env.VITE_SBI_COLLECT_URL || 'https://www.onlinesbi.sbi/sbicollect/'
@@ -484,33 +484,55 @@ export default function ApplicationForm() {
   if (loading) return <LoadingScreen />
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#001122] selection:bg-[#003366]/20">
+    <div className={isEmbedded ? "" : "min-h-screen bg-[#F8FAFC] text-[#001122] selection:bg-[#003366]/20"}>
       {/* Background Effects */}
-      <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#003366]/5 rounded-full blur-[140px]" />
-      </div>
+      {!isEmbedded && (
+        <div className="fixed inset-0 pointer-events-none z-0">
+          <div className="absolute top-0 left-0 w-[600px] h-[600px] bg-[#003366]/5 rounded-full blur-[140px]" />
+        </div>
+      )}
 
-      <header className="sticky top-0 z-50 bg-[#F8FAFC]/90 backdrop-blur-[30px] border-b border-blue-100 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-6 group cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-12 h-12 rounded-2xl bg-[#003366] flex items-center justify-center shadow-xl transition-all border border-white/20">
-              <GraduationCap size={24} className="text-white" />
+      {!isEmbedded && (
+        <header className="sticky top-0 z-50 bg-[#F8FAFC]/90 backdrop-blur-[30px] border-b border-blue-100 shadow-sm">
+          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div className="flex items-center gap-6 group cursor-pointer" onClick={() => navigate('/')}>
+              <div className="w-12 h-12 rounded-2xl bg-[#003366] flex items-center justify-center shadow-xl transition-all border border-white/20">
+                <GraduationCap size={24} className="text-white" />
+              </div>
+              <div>
+                <p className="text-[15px] font-bold text-[#001122] tracking-widest uppercase">Ph.D Admissions</p>
+                <p className="text-[10px] font-black text-[#003366] uppercase tracking-[0.3em] opacity-40">IIT ROPAR · 2026</p>
+              </div>
             </div>
-            <div>
-              <p className="text-[15px] font-bold text-[#001122] tracking-widest uppercase">Ph.D Admissions</p>
-              <p className="text-[10px] font-black text-[#003366] uppercase tracking-[0.3em] opacity-40">IIT ROPAR · 2026</p>
+            <div className="flex items-center gap-8">
+              <span className="text-[11px] text-[#001122] font-black hidden sm:block tracking-widest uppercase opacity-60">{user?.email}</span>
+              <button id="btn-signout" onClick={handleSignOut} className="px-7 py-3 rounded-full bg-white border border-blue-100 text-[#003366] text-[10px] font-black uppercase tracking-widest hover:bg-[#003366] hover:text-white transition-all shadow-sm">
+                <LogOut size={16} /> Sign Out
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-8">
-            <span className="text-[11px] text-[#001122] font-black hidden sm:block tracking-widest uppercase opacity-60">{user?.email}</span>
-            <button id="btn-signout" onClick={handleSignOut} className="px-7 py-3 rounded-full bg-white border border-blue-100 text-[#003366] text-[10px] font-black uppercase tracking-widest hover:bg-[#003366] hover:text-white transition-all shadow-sm">
-              <LogOut size={16} /> Sign Out
+        </header>
+      )}
+
+      <main className={`max-w-5xl mx-auto ${isEmbedded ? '' : 'px-4 py-16'} relative z-10`}>
+        {isEmbedded && (
+          <div className="mb-8 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-[#003366] font-heading flex items-center gap-3">
+                <BookOpen className="text-blue-500" />
+                Application Form
+              </h2>
+              <p className="text-xs text-slate-500 mt-1 uppercase tracking-widest font-black">Fill or update your details</p>
+            </div>
+            <button 
+              type="button"
+              onClick={onBack}
+              className="px-5 py-2 rounded-xl border border-blue-100 text-[#003366] font-black text-[10px] uppercase tracking-widest hover:bg-blue-50 transition-all flex items-center gap-2"
+            >
+              <ArrowRight size={14} className="rotate-180" /> Back to Dashboard
             </button>
           </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-4 py-16 relative z-10">
+        )}
         {submitError && (
           <div className="mb-12 animate-fade-up rounded-2xl border-2 border-red-100 bg-red-50 px-8 py-4 text-xs font-black uppercase tracking-widest text-red-600">
             {submitError}

@@ -7,7 +7,7 @@ import { fetchFlatApplications } from './applicationController.js'
  */
 export async function exportApplications(req, res) {
   try {
-    const data = await fetchFlatApplications(req.query)
+    const { applications: data } = await fetchFlatApplications(req.query)
 
     const workbook  = new ExcelJS.Workbook()
     workbook.creator = 'PhD Admission Portal'
@@ -85,8 +85,12 @@ export async function exportApplications(req, res) {
 
     // Helper: format education score
     const fmtScore = (s) => {
-      if (!s?.score_value) return ''
-      return `${s.score_value} (${s.score_type === 'cgpa' ? 'CGPA' : '%'})`
+      if (s === null || s === undefined || s === '') return ''
+      if (typeof s === 'object' && s !== null && !Array.isArray(s)) {
+        if (!s.score_value) return ''
+        return `${s.score_value} (${s.score_type === 'cgpa' ? 'CGPA' : '%'})`
+      }
+      return String(s)
     }
 
     // ── Add data rows ──
